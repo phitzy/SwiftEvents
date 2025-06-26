@@ -20,26 +20,54 @@ public class GUIManager {
     }
     
     public void openEventsGUI(Player player) {
+        openEventsGUI(player, 0); // Open first page by default
+    }
+    
+    public void openEventsGUI(Player player, int page) {
         if (!plugin.getConfigManager().isGUIEnabled()) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + "§cGUI is currently disabled.");
             return;
         }
         
         List<Event> events = plugin.getEventManager().getAllEvents();
-        int size = Math.max(9, Math.min(54, ((events.size() + 8) / 9) * 9));
         
-        Inventory gui = Bukkit.createInventory(null, size, plugin.getConfigManager().getGUITitle());
+        // Handle empty events list
+        if (events.isEmpty()) {
+            Inventory gui = Bukkit.createInventory(null, 9, plugin.getConfigManager().getGUITitle());
+            
+            ItemStack noEvents = new ItemStack(Material.BARRIER);
+            ItemMeta noEventsMeta = noEvents.getItemMeta();
+            noEventsMeta.setDisplayName("§cNo Events Available");
+            noEventsMeta.setLore(Arrays.asList("§7There are currently no events.", "§7Check back later!"));
+            noEvents.setItemMeta(noEventsMeta);
+            gui.setItem(4, noEvents);
+            
+            addNavigationItems(gui, player, page, 0);
+            player.openInventory(gui);
+            return;
+        }
+        
+        // Pagination calculation
+        int eventsPerPage = 36; // 4 rows for events, leaving room for navigation
+        int totalPages = (int) Math.ceil((double) events.size() / eventsPerPage);
+        page = Math.max(0, Math.min(page, totalPages - 1)); // Clamp page to valid range
+        
+        int size = 54; // Fixed size for consistency
+        Inventory gui = Bukkit.createInventory(null, size, plugin.getConfigManager().getGUITitle() + " (Page " + (page + 1) + "/" + totalPages + ")");
+        
+        // Add events for current page
+        int startIndex = page * eventsPerPage;
+        int endIndex = Math.min(startIndex + eventsPerPage, events.size());
         
         int slot = 0;
-        for (Event event : events) {
-            if (slot >= size - 9) break;
-            
+        for (int i = startIndex; i < endIndex; i++) {
+            Event event = events.get(i);
             ItemStack item = createEventItem(event, player);
             gui.setItem(slot, item);
             slot++;
         }
         
-        addNavigationItems(gui, player);
+        addNavigationItems(gui, player, page, totalPages);
         player.openInventory(gui);
     }
     
@@ -176,11 +204,39 @@ public class GUIManager {
         lore.add("§7Participants: §f" + event.getCurrentParticipants() + "/" + 
                 (event.getMaxParticipants() > 0 ? event.getMaxParticipants() : "∞"));
         
+        // Add creator information if available
+        if (event.getCreatedBy() != null) {
+            Player creator = Bukkit.getPlayer(event.getCreatedBy());
+            String creatorName = creator != null ? creator.getName() : "Unknown";
+            lore.add("§7Creator: §f" + creatorName);
+        }
+        
+        // Add location information if available
+        if (event.getWorld() != null) {
+            lore.add("§7Location: §f" + event.getWorld() + " (" + 
+                    (int)event.getX() + ", " + (int)event.getY() + ", " + (int)event.getZ() + ")");
+        }
+        
+        lore.add(""); // Empty line for separation
+        
+        // Player-specific information
         if (event.isParticipant(player.getUniqueId())) {
             lore.add("§a✓ You are participating");
+            lore.add("§7Shift+Click to leave quickly");
         } else if (event.canJoin()) {
-            lore.add("§eClick to join!");
+            // Check if player has permission for this event type
+            if (canPlayerAccessEventGUI(player, event)) {
+                lore.add("§eClick to view details");
+                lore.add("§7Shift+Click to join quickly");
+            } else {
+                lore.add("§c✗ No permission for this event type");
+            }
+        } else {
+            lore.add("§c✗ Cannot join: " + getJoinBlockReason(event));
         }
+        
+        lore.add("");
+        lore.add("§7Click for more details");
         
         meta.setLore(lore);
         item.setItemMeta(meta);
@@ -189,19 +245,65 @@ public class GUIManager {
     }
     
     private void addNavigationItems(Inventory gui, Player player) {
+        addNavigationItems(gui, player, 0, 1);
+    }
+    
+    private void addNavigationItems(Inventory gui, Player player, int currentPage, int totalPages) {
         int size = gui.getSize();
         
+        // Previous page button
+        if (currentPage > 0) {
+            ItemStack prevPage = new ItemStack(Material.ARROW);
+            ItemMeta prevMeta = prevPage.getItemMeta();
+            prevMeta.setDisplayName("§7← Previous Page");
+            prevMeta.setLore(Arrays.asList("§7Go to page " + currentPage));
+            prevPage.setItemMeta(prevMeta);
+            gui.setItem(size - 9, prevPage);
+        }
+        
+        // Page info
+        ItemStack pageInfo = new ItemStack(Material.PAPER);
+        ItemMeta pageMeta = pageInfo.getItemMeta();
+        pageMeta.setDisplayName("§6Page " + (currentPage + 1) + "/" + totalPages);
+        pageMeta.setLore(Arrays.asList("§7You are viewing page " + (currentPage + 1)));
+        pageInfo.setItemMeta(pageMeta);
+        gui.setItem(size - 5, pageInfo);
+        
+        // Next page button
+        if (currentPage < totalPages - 1) {
+            ItemStack nextPage = new ItemStack(Material.ARROW);
+            ItemMeta nextMeta = nextPage.getItemMeta();
+            nextMeta.setDisplayName("§7Next Page →");
+            nextMeta.setLore(Arrays.asList("§7Go to page " + (currentPage + 2)));
+            nextPage.setItemMeta(nextMeta);
+            gui.setItem(size - 1, nextPage);
+        }
+        
+        // Refresh button
         ItemStack refresh = new ItemStack(Material.EMERALD);
         ItemMeta refreshMeta = refresh.getItemMeta();
         refreshMeta.setDisplayName("§aRefresh");
+        refreshMeta.setLore(Arrays.asList("§7Update the events list"));
         refresh.setItemMeta(refreshMeta);
-        gui.setItem(size - 9, refresh);
+        gui.setItem(size - 8, refresh);
         
+        // Close button
         ItemStack close = new ItemStack(Material.BARRIER);
         ItemMeta closeMeta = close.getItemMeta();
         closeMeta.setDisplayName("§cClose");
+        closeMeta.setLore(Arrays.asList("§7Close this menu"));
         close.setItemMeta(closeMeta);
-        gui.setItem(size - 1, close);
+        gui.setItem(size - 2, close);
+        
+        // Admin panel button (if player has permission)
+        if (player.hasPermission("swiftevents.admin")) {
+            ItemStack adminPanel = new ItemStack(Material.COMMAND_BLOCK);
+            ItemMeta adminMeta = adminPanel.getItemMeta();
+            adminMeta.setDisplayName("§4Admin Panel");
+            adminMeta.setLore(Arrays.asList("§7Open the admin panel"));
+            adminPanel.setItemMeta(adminMeta);
+            gui.setItem(size - 6, adminPanel);
+        }
     }
     
     private void addAdminControls(Inventory gui, Event event) {
@@ -277,5 +379,56 @@ public class GUIManager {
             return "Event was cancelled";
         }
         return "Event not accepting participants";
+    }
+    
+    // Additional utility methods for GUI functionality
+    public boolean canPlayerAccessEventGUI(Player player, Event event) {
+        // Check if player has permission for this event type
+        String eventTypePermission = "swiftevents.event." + event.getType().name().toLowerCase();
+        return player.hasPermission("swiftevents.user") && 
+               player.hasPermission(eventTypePermission);
+    }
+    
+    public void refreshCurrentGUI(Player player) {
+        String title = player.getOpenInventory().getTitle();
+        
+        if (title.startsWith(plugin.getConfigManager().getGUITitle())) {
+            // Extract page from title and refresh events GUI
+            int page = extractPageFromTitle(title);
+            openEventsGUI(player, page);
+        } else if (title.startsWith("§6Event: ")) {
+            // Refresh event details GUI
+            String eventName = title.substring("§6Event: ".length());
+            Event event = findEventByName(eventName);
+            if (event != null) {
+                openEventDetailsGUI(player, event);
+            }
+        } else if (title.equals("§4Admin - Event Management")) {
+            // Refresh admin GUI
+            openAdminGUI(player);
+        }
+    }
+    
+    private int extractPageFromTitle(String title) {
+        // Extract page number from titles like "Events (Page 2/5)"
+        if (title.contains("(Page ")) {
+            try {
+                int start = title.indexOf("(Page ") + 6;
+                int end = title.indexOf("/", start);
+                if (start > 5 && end > start) {
+                    return Integer.parseInt(title.substring(start, end)) - 1; // Convert to 0-based
+                }
+            } catch (NumberFormatException e) {
+                // Ignore and return 0
+            }
+        }
+        return 0; // Default to first page
+    }
+    
+    private Event findEventByName(String name) {
+        return plugin.getEventManager().getAllEvents().stream()
+                .filter(event -> event.getName().equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
     }
 } 

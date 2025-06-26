@@ -100,20 +100,6 @@ SwiftEvents is the ultimate event management solution for PaperMC servers, offer
 4. **Configure** settings in `plugins/SwiftEvents/config.yml`
 5. **Restart** or reload your server
 
-### 🎯 First Event
-
-```bash
-# Create your first event (as an admin)
-/eventadmin create "PvP Tournament" PVP "Epic battle royale!"
-
-# Players can then join
-/event join "PvP Tournament"
-
-# Or use the GUI
-/eventgui
-```
-
----
 
 ## 📋 **Commands**
 
@@ -373,7 +359,6 @@ hud:
   - [ ] Error handling and recovery
 
 - [ ] **Documentation**
-  - [ ] Video tutorials and guides
   - [ ] Developer API documentation
   - [ ] Configuration examples and templates
   - [ ] Migration guides from other event plugins
