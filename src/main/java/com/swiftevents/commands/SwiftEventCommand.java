@@ -2,6 +2,7 @@ package com.swiftevents.commands;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.permissions.Permissions;
 import com.swiftevents.tasker.EventTasker;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class SwiftEventCommand implements CommandExecutor, TabCompleter {
@@ -47,7 +49,7 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (!player.hasPermission("swiftevents.user")) {
+        if (!player.hasPermission(Permissions.USER_BASE)) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
                     plugin.getConfigManager().getMessage("no_permission"));
             return true;
@@ -67,6 +69,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
                 handleInfo(player, args);
                 break;
             case "teleport":
+                if (!player.hasPermission(Permissions.USER_TP)) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
+                    return true;
+                }
                 handleTeleport(player, args);
                 break;
             case "gui":
@@ -84,7 +91,7 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleAdminCommand(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("swiftevents.admin")) {
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() +
                     plugin.getConfigManager().getMessage("no_permission"));
             return;
@@ -145,6 +152,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleJoin(Player player, String[] args) {
+        if (!player.hasPermission(Permissions.USER_JOIN)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent join <event_name_or_id>");
@@ -195,6 +207,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleLeave(Player player, String[] args) {
+        if (!player.hasPermission(Permissions.USER_LEAVE)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent leave <event_name_or_id>");
@@ -232,6 +249,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleList(Player player) {
+        if (!player.hasPermission(Permissions.USER_LIST)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         List<Event> events = plugin.getEventManager().getAllEvents();
 
         if (events.isEmpty()) {
@@ -265,6 +287,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleInfo(Player player, String[] args) {
+        if (!player.hasPermission(Permissions.USER_STATS)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent info <event_name_or_id>");
@@ -289,9 +316,14 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleTeleport(Player player, String[] args) {
+        if (!player.hasPermission(Permissions.USER_TP)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
-                    "§cUsage: /swiftevent teleport <event_id>");
+                    "§cUsage: /swiftevent teleport <event_name_or_id>");
             return;
         }
 
@@ -307,7 +339,7 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
         boolean success = plugin.getChatManager().teleportToEvent(player, event);
         if (!success) {
             player.sendMessage(plugin.getConfigManager().getPrefix() +
-                    "§cFailed to teleport to event.");
+                    "§cFailed to teleport to event. You can only teleport to running events.");
         }
     }
 
@@ -347,19 +379,27 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showHelp(CommandSender sender) {
-        sender.sendMessage(plugin.getConfigManager().getPrefix() + "§6SwiftEvents Commands:");
-        sender.sendMessage("§7/swiftevent join <event> - Join an event.");
-        sender.sendMessage("§7/swiftevent leave <event> - Leave an event.");
-        sender.sendMessage("§7/swiftevent list - List available events.");
-        sender.sendMessage("§7/swiftevent info <event> - Get info about an event.");
-        sender.sendMessage("§7/swiftevent gui - Open the events GUI.");
-        if (sender.hasPermission("swiftevents.admin")) {
-            sender.sendMessage("§7/swiftevent admin - Admin commands.");
+        if (sender instanceof Player && !sender.hasPermission(Permissions.USER_HELP)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
         }
+        sender.sendMessage("§6§lSwiftEvents Help");
+        sender.sendMessage("§7" + "─".repeat(40));
+        sender.sendMessage("§e/swiftevent help §7- Shows this help message.");
+        sender.sendMessage("§e/swiftevent list §7- Lists all available events.");
+        sender.sendMessage("§e/swiftevent info <event> §7- Shows info about an event.");
+        sender.sendMessage("§e/swiftevent teleport <event> §7- Teleports you to an event.");
+        sender.sendMessage("§7" + "─".repeat(40));
     }
 
     // Admin command handlers from EventAdminCommand
     private void handleCreate(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_CREATE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 4) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent admin create <name> <type> <description>");
@@ -408,6 +448,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleDelete(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_DELETE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent admin delete <event_name>");
@@ -434,6 +479,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleStart(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_START)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent admin start <event_name>");
@@ -460,6 +510,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleStop(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_STOP)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() +
                     "§cUsage: /swiftevent admin stop <event_name>");
@@ -486,6 +541,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleAdminList(CommandSender sender) {
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         List<Event> events = plugin.getEventManager().getAllEvents();
 
         if (events.isEmpty()) {
@@ -520,15 +580,24 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleAdminGUI(CommandSender sender) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cThis command can only be used by players!");
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
             return;
         }
-
-        plugin.getAdminGUIManager().openAdminGUI(player);
+        if (sender instanceof Player player) {
+            plugin.getAdminGUIManager().openAdminGUI(player);
+        } else {
+            showAdminHelp(sender);
+        }
     }
 
     private void handleReload(CommandSender sender) {
+        if (!sender.hasPermission(Permissions.RELOAD)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         plugin.getConfigManager().reloadConfig();
         plugin.getEventTasker().restart();
         sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aConfiguration reloaded and event tasker restarted.");
@@ -540,13 +609,14 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        String taskerAction = args[1].toLowerCase();
+        String taskerCmd = args[1].toLowerCase();
         EventTasker tasker = plugin.getEventTasker();
 
-        switch (taskerAction) {
+        switch (taskerCmd) {
             case "start":
-                if (!sender.hasPermission("swiftevents.admin.tasker.start")) {
-                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                if (!sender.hasPermission(Permissions.TASKER_START)) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
                     return;
                 }
                 if (tasker.isRunning()) {
@@ -557,8 +627,9 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "stop":
-                if (!sender.hasPermission("swiftevents.admin.tasker.stop")) {
-                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                if (!sender.hasPermission(Permissions.TASKER_STOP)) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
                     return;
                 }
                 if (!tasker.isRunning()) {
@@ -569,16 +640,18 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "restart":
-                if (!sender.hasPermission("swiftevents.admin.tasker.restart")) {
-                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                if (!sender.hasPermission(Permissions.TASKER_RESTART)) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
                     return;
                 }
                 tasker.restart();
                 sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent tasker restarted.");
                 break;
             case "next":
-                if (!sender.hasPermission("swiftevents.admin.tasker.next")) {
-                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                if (!sender.hasPermission(Permissions.TASKER_NEXT)) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
                     return;
                 }
                 if (!tasker.isRunning()) {
@@ -589,8 +662,9 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
                 }
                 break;
             case "status":
-                if (!sender.hasPermission("swiftevents.admin.tasker.status")) {
-                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                if (!sender.hasPermission(Permissions.TASKER_STATUS)) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
                     return;
                 }
                 sender.sendMessage(plugin.getConfigManager().getPrefix() + "§6Event Tasker Status:");
@@ -608,38 +682,51 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showTaskerHelp(CommandSender sender) {
-        sender.sendMessage(plugin.getConfigManager().getPrefix() + "§6Event Tasker Commands:");
-        sender.sendMessage("§7/swiftevent admin tasker start - Starts the event tasker.");
-        sender.sendMessage("§7/swiftevent admin tasker stop - Stops the event tasker.");
-        sender.sendMessage("§7/swiftevent admin tasker restart - Restarts the event tasker and reloads presets.");
-        sender.sendMessage("§7/swiftevent admin tasker next - Forces the next event to start.");
-        sender.sendMessage("§7/swiftevent admin tasker status - Shows the status of the event tasker.");
+        sender.sendMessage("§6§lEvent Tasker Help");
+        sender.sendMessage("§7" + "─".repeat(40));
+        sender.sendMessage("§e/swiftevent admin tasker start §7- Starts the tasker.");
+        sender.sendMessage("§e/swiftevent admin tasker stop §7- Stops the tasker.");
+        sender.sendMessage("§e/swiftevent admin tasker restart §7- Restarts the tasker.");
+        sender.sendMessage("§e/swiftevent admin tasker next §7- Forces the next scheduled event.");
+        sender.sendMessage("§e/swiftevent admin tasker status §7- Shows the tasker status.");
+        sender.sendMessage("§7" + "─".repeat(40));
     }
 
     private void showAdminHelp(CommandSender sender) {
-        sender.sendMessage("§e==== SwiftEvents Admin Help ====");
-        sender.sendMessage("§a/swiftevent admin create <name> <type> [max_players] - Create a new event.");
-        sender.sendMessage("§a/swiftevent admin delete <name> - Delete an event.");
-        sender.sendMessage("§a/swiftevent admin start <name> - Start an event.");
-        sender.sendMessage("§a/swiftevent admin stop <name> - Stop an event.");
-        sender.sendMessage("§a/swiftevent admin list - List all events.");
-        sender.sendMessage("§a/swiftevent admin gui - Open the admin GUI.");
-        sender.sendMessage("§a/swiftevent admin reload - Reload the plugin configuration.");
-        sender.sendMessage("§a/swiftevents admin tasker <start|stop|status> - Control the event tasker.");
-        sender.sendMessage("§a/swiftevents admin config <get|set> <key> [value] - Manage plugin config.");
-        sender.sendMessage("§a/swiftevents admin backup <create|list> - Manage backups.");
-        sender.sendMessage("§a/swiftevents admin location <set|remove|list|tp> [name] - Manage preset locations.");
-        sender.sendMessage("§e==================================");
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
+        sender.sendMessage("§c§lSwiftEvents Admin Help");
+        sender.sendMessage("§7" + "─".repeat(40));
+        sender.sendMessage("§e/swiftevent admin create <name> <type> <duration> [desc] §7- Creates an event.");
+        sender.sendMessage("§e/swiftevent admin delete <name> - Delete an event.");
+        sender.sendMessage("§e/swiftevent admin start <name> - Start an event.");
+        sender.sendMessage("§e/swiftevent admin stop <name> - Stop an event.");
+        sender.sendMessage("§e/swiftevent admin list - List all events.");
+        sender.sendMessage("§e/swiftevent admin gui - Open the admin GUI.");
+        sender.sendMessage("§e/swiftevent admin reload - Reload the plugin configuration.");
+        sender.sendMessage("§e/swiftevents admin tasker <start|stop|status> - Control the event tasker.");
+        sender.sendMessage("§e/swiftevents admin config <get|set> <key> [value] - Manage plugin config.");
+        sender.sendMessage("§e/swiftevents admin backup <create|list> - Manage backups.");
+        sender.sendMessage("§e/swiftevents admin location <set|remove|list|tp> [name] - Manage preset locations.");
+        sender.sendMessage("§7" + "─".repeat(40));
     }
 
     private void handleConfig(CommandSender sender, String[] args) {
-        if (args.length < 2) {
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
+        if (args.length < 3) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cUsage: /swiftevent admin config <key> [new_value]");
             return;
         }
 
         String key = args[1];
-        if (args.length == 2) {
+        if (args.length == 3) {
             // Get value
             Object value = plugin.getConfig().get(key);
             if (value != null) {
@@ -659,28 +746,39 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleBackup(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cUsage: /swiftevent admin backup <create|restore|list> [name]");
             return;
         }
 
         String backupAction = args[1].toLowerCase();
-        switch (backupAction) {
-            case "create":
-                // Logic to create a backup
-                sender.sendMessage("Backup creation functionality coming soon.");
-                break;
-            case "restore":
-                // Logic to restore a backup
-                sender.sendMessage("Backup restoration functionality coming soon.");
-                break;
-            case "list":
-                // Logic to list backups
-                sender.sendMessage("Backup listing functionality coming soon.");
-                break;
-            default:
-                sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cInvalid backup command.");
-                break;
+
+        if (backupAction.equals("create")) {
+            plugin.getDatabaseManager().backupData().thenAccept(success -> {
+                if (success) {
+                    plugin.getServer().getScheduler().runTask(plugin, () ->
+                            sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aManual backup created."));
+                } else {
+                    plugin.getServer().getScheduler().runTask(plugin, () ->
+                            sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cFailed to create backup. Check console for details."));
+                }
+            });
+        } else if (backupAction.equals("restore")) {
+            if (args.length < 3) {
+                sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cUsage: /swiftevent admin backup restore <backup_name>");
+                return;
+            }
+            // Logic to restore a backup
+            sender.sendMessage("Backup restoration functionality not yet implemented.");
+        } else if (backupAction.equals("list")) {
+            sender.sendMessage("Backup listing functionality coming soon.");
+        } else {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cInvalid backup command.");
         }
     }
 
@@ -767,7 +865,7 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
             case "list":
                 handleLocationList(sender);
                 break;
-            case "tp":
+            case "teleport":
                 handleLocationTeleport(sender, args);
                 break;
             default:
@@ -777,8 +875,13 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleLocationSet(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_SETPOS)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command can only be used by a player.");
+            sender.sendMessage("§cThis command can only be used by a player.");
             return;
         }
         if (args.length < 2) {
@@ -795,6 +898,11 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleLocationRemove(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_SETPOS)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (args.length < 2) {
             sender.sendMessage("§cUsage: /swiftevent admin location remove <name>");
             return;
@@ -808,14 +916,29 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleLocationList(CommandSender sender) {
+        if (!sender.hasPermission(Permissions.ADMIN_SETPOS)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
+        Set<String> locations = plugin.getLocationManager().getPresetLocationNames();
+        if (locations.isEmpty()) {
+            sender.sendMessage("§cNo preset locations found.");
+            return;
+        }
         sender.sendMessage("§e==== Preset Locations ====");
-        plugin.getLocationManager().getPresetLocationNames().forEach(name -> sender.sendMessage("§a- " + name));
+        locations.forEach(name -> sender.sendMessage("§a- " + name));
         sender.sendMessage("§e==========================");
     }
     
     private void handleLocationTeleport(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(Permissions.ADMIN_SETPOS)) {
+            sender.sendMessage(plugin.getConfigManager().getPrefix() +
+                    plugin.getConfigManager().getMessage("no_permission"));
+            return;
+        }
         if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command can only be used by a player.");
+            sender.sendMessage("§cThis command can only be used by a player.");
             return;
         }
         if (args.length < 2) {
@@ -833,45 +956,49 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showLocationHelp(CommandSender sender) {
-        sender.sendMessage("§e==== Location Admin Help ====");
-        sender.sendMessage("§a/swiftevent admin location set <name> - Sets a preset location to your position.");
-        sender.sendMessage("§a/swiftevent admin location remove <name> - Removes a preset location.");
-        sender.sendMessage("§a/swiftevent admin location list - Lists all preset locations.");
-        sender.sendMessage("§a/swiftevent admin location tp <name> - Teleports to a preset location.");
-        sender.sendMessage("§e=============================");
+        sender.sendMessage("§6§lLocation Management Help");
+        sender.sendMessage("§7" + "─".repeat(40));
+        sender.sendMessage("§e/swiftevent admin location set <name> §7- Sets a preset location.");
+        sender.sendMessage("§e/swiftevent admin location remove <name> §7- Removes a preset location.");
+        sender.sendMessage("§e/swiftevent admin location list §7- Lists all preset locations.");
+        sender.sendMessage("§e/swiftevent admin location teleport <name> §7- Teleports to a preset location.");
+        sender.sendMessage("§7" + "─".repeat(40));
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("join", "leave", "list", "info", "teleport", "gui", "help", "admin").stream()
+            List<String> completions = new ArrayList<>(Arrays.asList("join", "leave", "list", "info", "teleport", "gui", "help"));
+            if (sender.hasPermission(Permissions.ADMIN_BASE)) {
+                completions.add("admin");
+            }
+            return completions.stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
 
         if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
-            if (!sender.hasPermission("swiftevents.admin")) {
+            if (!sender.hasPermission(Permissions.ADMIN_BASE)) {
                 return Collections.emptyList();
             }
             if (args.length == 2) {
-                return List.of("create", "delete", "start", "stop", "list", "gui", "reload", "tasker", "config", "backup", "location", "help").stream()
+                List<String> adminCompletions = new ArrayList<>(Arrays.asList(
+                        "create", "delete", "start", "stop", "list", "gui", "reload", "tasker", "config", "backup", "location", "help"
+                ));
+                return adminCompletions.stream()
                         .filter(s -> s.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
             }
-
+            // Tab completion for admin sub-commands
             String adminSubCommand = args[1].toLowerCase();
-            if (adminSubCommand.equals("location") && args.length == 3) {
-                return List.of("set", "remove", "list", "tp").stream()
+            if (adminSubCommand.equals("tasker") && args.length == 3) {
+                return Arrays.asList("start", "stop", "restart", "next", "status").stream()
                         .filter(s -> s.startsWith(args[2].toLowerCase()))
                         .collect(Collectors.toList());
             }
-
-            if (adminSubCommand.equals("location") && (args[2].equalsIgnoreCase("remove") || args[2].equalsIgnoreCase("tp")) && args.length == 4) {
-                return plugin.getLocationManager().getPresetLocationNames().stream()
-                        .filter(name -> name.toLowerCase().startsWith(args[3].toLowerCase()))
-                        .collect(Collectors.toList());
-            }
+            // Add more tab completions for other admin commands if needed (e.g., event names for delete/start/stop)
         }
+
         return Collections.emptyList();
     }
 }

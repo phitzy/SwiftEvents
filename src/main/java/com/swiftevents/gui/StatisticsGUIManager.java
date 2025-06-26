@@ -2,6 +2,7 @@ package com.swiftevents.gui;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.permissions.Permissions;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -28,7 +29,7 @@ public class StatisticsGUIManager {
     }
     
     public void openEventStatisticsGUI(Player player) {
-        if (!player.hasPermission("swiftevents.admin")) {
+        if (!player.hasPermission(Permissions.ADMIN_BASE)) {
             return;
         }
         

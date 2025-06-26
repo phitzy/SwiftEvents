@@ -1,6 +1,7 @@
 package com.swiftevents.gui;
 
 import com.swiftevents.events.Event;
+import com.swiftevents.permissions.Permissions;
 import org.bukkit.entity.Player;
 
 public enum EventFilter {
@@ -96,10 +97,35 @@ public enum EventFilter {
     public abstract boolean matches(Event event, Player player);
     
     protected boolean hasPermissionForEvent(Event event, Player player) {
-        // Check if player has permission for this event type
-        String eventTypePermission = "swiftevents.event." + event.getType().name().toLowerCase();
-        return player.hasPermission("swiftevents.user") && 
-               player.hasPermission(eventTypePermission);
+        if (!player.hasPermission(Permissions.USER_BASE)) {
+            return false;
+        }
+        if (player.hasPermission(Permissions.ADMIN_BASE)) {
+            return true;
+        }
+        String permission;
+        switch (event.getType()) {
+            case PVP:
+                permission = Permissions.EVENT_TYPE_PVP;
+                break;
+            case BUILDING:
+                permission = Permissions.EVENT_TYPE_BUILDING;
+                break;
+            case RACING:
+                permission = Permissions.EVENT_TYPE_RACING;
+                break;
+            case TREASURE_HUNT:
+                permission = Permissions.EVENT_TYPE_TREASURE;
+                break;
+            case CUSTOM:
+                permission = Permissions.EVENT_TYPE_CUSTOM;
+                break;
+            default:
+                // For PVE, MINI_GAME, etc., we can assume a base permission
+                // or create specific ones if needed. For now, let's use a general one.
+                return player.hasPermission(Permissions.USER_JOIN);
+        }
+        return player.hasPermission(permission);
     }
     
     public static EventFilter getNext(EventFilter current) {

@@ -1,6 +1,16 @@
 package com.swiftevents;
 
 import com.swiftevents.api.EventAPI;
+import com.swiftevents.api.GuiAPI;
+import com.swiftevents.api.GuiAPIManager;
+import com.swiftevents.api.HudAPI;
+import com.swiftevents.api.HudAPIManager;
+import com.swiftevents.api.ChatAPI;
+import com.swiftevents.api.ChatAPIManager;
+import com.swiftevents.api.TaskerAPI;
+import com.swiftevents.api.TaskerAPIManager;
+import com.swiftevents.api.LocationAPI;
+import com.swiftevents.api.LocationAPIManager;
 import com.swiftevents.api.SwiftEventsAPI;
 import com.swiftevents.api.hooks.HookManager;
 import com.swiftevents.commands.SwiftEventCommand;
@@ -28,6 +38,11 @@ public class SwiftEventsPlugin extends JavaPlugin {
     private StatisticsGUIManager statisticsGUIManager;
     private HUDManager hudManager;
     private EventAPI eventAPI;
+    private GuiAPI guiAPI;
+    private HudAPI hudAPI;
+    private ChatAPI chatAPI;
+    private TaskerAPI taskerAPI;
+    private LocationAPI locationAPI;
     private EventTasker eventTasker;
     private HookManager hookManager;
     private ChatManager chatManager;
@@ -111,6 +126,11 @@ public class SwiftEventsPlugin extends JavaPlugin {
         
         // Initialize API
         eventAPI = new EventAPI(this);
+        guiAPI = new GuiAPIManager(this);
+        hudAPI = new HudAPIManager(this);
+        chatAPI = new ChatAPIManager(this);
+        taskerAPI = new TaskerAPIManager(this);
+        locationAPI = new LocationAPIManager(this);
         
         // Initialize Event Tasker
         eventTasker = new EventTasker(this);
@@ -167,6 +187,26 @@ public class SwiftEventsPlugin extends JavaPlugin {
     
     public EventAPI getEventAPI() {
         return eventAPI;
+    }
+    
+    public GuiAPI getGuiAPI() {
+        return guiAPI;
+    }
+    
+    public HudAPI getHudAPI() {
+        return hudAPI;
+    }
+    
+    public ChatAPI getChatAPI() {
+        return chatAPI;
+    }
+    
+    public TaskerAPI getTaskerAPI() {
+        return taskerAPI;
+    }
+    
+    public LocationAPI getLocationAPI() {
+        return locationAPI;
     }
     
     public EventTasker getEventTasker() {

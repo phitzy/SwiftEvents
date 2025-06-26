@@ -11,6 +11,8 @@ import java.io.*;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -308,6 +310,35 @@ public class DatabaseManager {
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("Error deleting event " + eventId + ": " + e.getMessage());
+                if (plugin.getConfigManager().isDebugMode()) {
+                    e.printStackTrace();
+                }
+                return false;
+            }
+        }, databaseExecutor);
+    }
+    
+    public CompletableFuture<Boolean> backupData() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (plugin.getConfigManager().isDatabaseEnabled()) {
+                plugin.getLogger().warning("Data backup is currently only supported for JSON storage.");
+                return false; // Or implement database backup logic
+            }
+            try {
+                File backupDir = new File(jsonFolder, "backups");
+                if (!backupDir.exists()) {
+                    backupDir.mkdirs();
+                }
+
+                String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+                File backupFile = new File(backupDir, "backup-" + timestamp + ".json");
+
+                List<Event> allEvents = plugin.getEventManager().getAllEvents();
+                return saveEventsToJsonFile(allEvents, backupFile);
+
+            } catch (Exception e) {
+                plugin.getLogger().severe("Failed to create backup: " + e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         }, databaseExecutor);
@@ -556,12 +587,25 @@ public class DatabaseManager {
     // JSON operations with optimized file handling
     private boolean saveEventToJson(Event event) {
         File eventFile = new File(jsonFolder, event.getId() + ".json");
-        
-        try (FileWriter writer = new FileWriter(eventFile, StandardCharsets.UTF_8)) {
+        return saveEventToJsonFile(event, eventFile);
+    }
+    
+    private boolean saveEventToJsonFile(Event event, File file) {
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
             gson.toJson(event, writer);
             return true;
         } catch (IOException e) {
-            plugin.getLogger().warning("Failed to save event to JSON: " + e.getMessage());
+            plugin.getLogger().warning("Could not save event to " + file.getName() + ": " + e.getMessage());
+            return false;
+        }
+    }
+    
+    private boolean saveEventsToJsonFile(List<Event> events, File file) {
+        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
+            gson.toJson(events, EVENT_LIST_TYPE, writer);
+            return true;
+        } catch (IOException e) {
+            plugin.getLogger().warning("Could not save events to " + file.getName() + ": " + e.getMessage());
             return false;
         }
     }
@@ -582,28 +626,37 @@ public class DatabaseManager {
     }
     
     private List<Event> loadAllEventsFromJson() {
-        List<Event> events = new ArrayList<>();
-        
-        if (!jsonFolder.exists()) {
-            return events;
+        if (jsonFolder == null || !jsonFolder.exists()) {
+            return new ArrayList<>();
         }
         
         File[] eventFiles = jsonFolder.listFiles((dir, name) -> name.endsWith(".json"));
         if (eventFiles == null) {
-            return events;
+            return new ArrayList<>();
         }
-        
+
+        List<Event> events = Collections.synchronizedList(new ArrayList<>());
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
         for (File eventFile : eventFiles) {
-            try (FileReader reader = new FileReader(eventFile, StandardCharsets.UTF_8)) {
-                Event event = gson.fromJson(reader, Event.class);
-                if (event != null) {
-                    events.add(event);
+            futures.add(CompletableFuture.runAsync(() -> {
+                try (Reader reader = new InputStreamReader(new FileInputStream(eventFile), StandardCharsets.UTF_8)) {
+                    Event event = gson.fromJson(reader, Event.class);
+                    if (event != null && event.getId() != null) {
+                        events.add(event);
+                    }
+                } catch (IOException e) {
+                    plugin.getLogger().warning("Error loading event from " + eventFile.getName() + ": " + e.getMessage());
                 }
-            } catch (IOException e) {
-                plugin.getLogger().warning("Failed to load event from JSON file " + eventFile.getName() + ": " + e.getMessage());
-            }
+            }, databaseExecutor));
         }
-        
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error waiting for JSON event loading to complete: " + e.getMessage());
+        }
+
         return events;
     }
     

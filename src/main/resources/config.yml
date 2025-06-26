@@ -90,7 +90,7 @@ events:
 # Automatic Event Tasker Configuration
 event_tasker:
   # Enable/disable the automatic event tasker
-  enabled: false
+  enabled: true
   # Interval between automatic event checks (in seconds)
   check_interval: 60
   # Minimum time between events (in minutes)

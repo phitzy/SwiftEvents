@@ -59,6 +59,46 @@ public final class SwiftEventsAPI {
         return api;
     }
     
+    /**
+     * Get the GuiAPI instance
+     * @return The GuiAPI instance or null if not available
+     */
+    public static GuiAPI getGuiAPI() {
+        return isAvailable() ? api.getGuiAPI() : null;
+    }
+    
+    /**
+     * Get the HudAPI instance
+     * @return The HudAPI instance or null if not available
+     */
+    public static HudAPI getHudAPI() {
+        return isAvailable() ? api.getHudAPI() : null;
+    }
+    
+    /**
+     * Get the ChatAPI instance
+     * @return The ChatAPI instance or null if not available
+     */
+    public static ChatAPI getChatAPI() {
+        return isAvailable() ? api.getChatAPI() : null;
+    }
+    
+    /**
+     * Get the TaskerAPI instance
+     * @return The TaskerAPI instance or null if not available
+     */
+    public static TaskerAPI getTaskerAPI() {
+        return isAvailable() ? api.getTaskerAPI() : null;
+    }
+    
+    /**
+     * Get the LocationAPI instance
+     * @return The LocationAPI instance or null if not available
+     */
+    public static LocationAPI getLocationAPI() {
+        return isAvailable() ? api.getLocationAPI() : null;
+    }
+    
     // ===== CONVENIENCE METHODS =====
     
     /**

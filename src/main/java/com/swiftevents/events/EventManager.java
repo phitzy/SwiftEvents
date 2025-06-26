@@ -4,6 +4,7 @@ import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.api.events.*;
 import com.swiftevents.chat.ChatManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -497,43 +498,71 @@ public class EventManager {
         if (event == null || !event.isParticipant(playerId)) {
             return false;
         }
-        
+
         event.removeParticipant(playerId);
-        
+
         Player player = Bukkit.getPlayer(playerId);
-        
+
         // Fire Bukkit event
         SwiftEventPlayerLeaveEvent leaveEvent = new SwiftEventPlayerLeaveEvent(event, playerId, player, "manual");
         Bukkit.getPluginManager().callEvent(leaveEvent);
-        
+
         // Notify player
         if (player != null) {
             String message = plugin.getConfigManager().getMessage("event_left")
-                    .replace("{event}", event.getName());
+                    .replace("{event_name}", event.getName());
             player.sendMessage(plugin.getConfigManager().getPrefix() + message);
         }
-        
+
         // Save the updated event
-        plugin.getDatabaseManager().saveEvent(event);
-        
+        saveEvent(event);
+
         // Call hooks after leaving
         plugin.getHookManager().callPlayerLeft(player, playerId, event, "manual");
+
+        return true;
+    }
+    
+    public boolean teleportToEvent(Player player, String eventId) {
+        Event event = getEvent(eventId);
+        if (event == null) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent not found.");
+            return false;
+        }
+
+        if (!event.isActive()) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou can only teleport to an active event.");
+            return false;
+        }
+
+        if (!event.hasLocation()) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cThis event does not have a location set.");
+            return false;
+        }
+
+        if (!event.isParticipant(player.getUniqueId())) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou must be in the event to teleport to it.");
+            return false;
+        }
         
+        Location teleportLocation = new Location(
+                Bukkit.getWorld(event.getWorld()),
+                event.getX(),
+                event.getY(),
+                event.getZ()
+        );
+
+        player.teleport(teleportLocation);
+        player.sendMessage(plugin.getConfigManager().getPrefix() + "§aTeleported to " + event.getName() + ".");
         return true;
     }
     
     private void notifyParticipants(Event event, String message) {
-        // Clear and reuse set
-        playersToNotify.clear();
-        playersToNotify.addAll(event.getParticipants());
-        
-        String formattedMessage = plugin.getConfigManager().getPrefix() + 
-                message.replace("{event}", event.getName());
-        
-        for (UUID participantId : playersToNotify) {
+        // Optimization: Use enhanced for loop on keySet
+        for (UUID participantId : event.getParticipants()) {
             Player player = Bukkit.getPlayer(participantId);
             if (player != null && player.isOnline()) {
-                player.sendMessage(formattedMessage);
+                player.sendMessage(message);
             }
         }
     }

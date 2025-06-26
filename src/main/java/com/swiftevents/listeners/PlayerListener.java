@@ -3,6 +3,7 @@ package com.swiftevents.listeners;
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
 import com.swiftevents.gui.GUISession;
+import com.swiftevents.permissions.Permissions;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -175,7 +176,7 @@ public class PlayerListener implements Listener {
                 break;
                 
             case "§4Admin Panel":
-                if (player.hasPermission("swiftevents.admin")) {
+                if (player.hasPermission(Permissions.ADMIN_BASE)) {
                     plugin.getAdminGUIManager().openAdminGUI(player);
                 }
                 break;
@@ -388,9 +389,8 @@ public class PlayerListener implements Listener {
     }
     
     private void handleStartEvent(Player player, Event event) {
-        if (!player.hasPermission("swiftevents.admin")) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    plugin.getConfigManager().getMessage("no_permission"));
+        if (!player.hasPermission(Permissions.ADMIN_START)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to start events.");
             return;
         }
         
@@ -419,9 +419,8 @@ public class PlayerListener implements Listener {
     }
     
     private void handleStopEvent(Player player, Event event) {
-        if (!player.hasPermission("swiftevents.admin")) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    plugin.getConfigManager().getMessage("no_permission"));
+        if (!player.hasPermission(Permissions.ADMIN_STOP)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to stop events.");
             return;
         }
         
@@ -450,9 +449,8 @@ public class PlayerListener implements Listener {
     }
     
     private void handleDeleteEvent(Player player, Event event) {
-        if (!player.hasPermission("swiftevents.admin")) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    plugin.getConfigManager().getMessage("no_permission"));
+        if (!player.hasPermission(Permissions.ADMIN_DELETE)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to delete events.");
             return;
         }
         
@@ -542,9 +540,8 @@ public class PlayerListener implements Listener {
     }
     
     private void handleTeleportToEvent(Player player, Event event) {
-        if (!player.hasPermission("swiftevents.teleport")) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    plugin.getConfigManager().getMessage("no_permission"));
+        if (!player.hasPermission(Permissions.USER_TP)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to teleport to events.");
             return;
         }
         
@@ -554,13 +551,18 @@ public class PlayerListener implements Listener {
             return;
         }
         
-        // Use the existing teleport logic from EventCommand
-        player.performCommand("event teleport " + event.getName());
-        player.closeInventory();
+        boolean success = plugin.getEventManager().teleportToEvent(player, event.getId());
+        if (success) {
+            player.closeInventory();
+        } else {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§cFailed to teleport to event. Please try again.");
+        }
     }
     
     private void handleAdminGUI(Player player, String itemName) {
-        if (!player.hasPermission("swiftevents.admin")) {
+        if (!player.hasPermission(Permissions.ADMIN_BASE)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou do not have access to the admin panel.");
             player.closeInventory();
             return;
         }

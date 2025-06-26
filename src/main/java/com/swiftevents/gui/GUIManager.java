@@ -2,6 +2,7 @@ package com.swiftevents.gui;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.permissions.Permissions;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -323,9 +324,8 @@ public class GUIManager {
     }
     
     public void openAdminGUI(Player player) {
-        if (!player.hasPermission("swiftevents.admin")) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    plugin.getConfigManager().getMessage("no_permission"));
+        if (!player.hasPermission(Permissions.ADMIN_BASE)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to access the admin GUI.");
             return;
         }
         
@@ -474,11 +474,6 @@ public class GUIManager {
             gui.setItem(31, teleportButton);
         }
         
-        // Admin controls
-        if (player.hasPermission("swiftevents.admin")) {
-            addAdminControls(gui, event);
-        }
-        
         // Back button
         ItemStack backButton = getCachedItem("back_button", () -> {
             ItemStack item = new ItemStack(Material.ARROW);
@@ -493,6 +488,11 @@ public class GUIManager {
             return item;
         });
         gui.setItem(45, backButton);
+        
+        // Admin controls
+        if (player.hasPermission(Permissions.ADMIN_BASE)) {
+            addAdminControls(gui, event);
+        }
         
         player.openInventory(gui);
     }
@@ -533,10 +533,6 @@ public class GUIManager {
         return item;
     }
     
-    private void addNavigationItems(Inventory gui, Player player) {
-        addNavigationItems(gui, player, 0, 1);
-    }
-    
     private void addNavigationItems(Inventory gui, Player player, int currentPage, int totalPages) {
         // Previous page
         if (currentPage > 0) {
@@ -573,6 +569,23 @@ public class GUIManager {
                 return item;
             });
             gui.setItem(50, nextPage);
+        }
+        
+        // Admin Panel button
+        if (player.hasPermission(Permissions.ADMIN_BASE)) {
+            ItemStack adminButton = getCachedItem("admin_panel_button", () -> {
+                ItemStack item = new ItemStack(Material.COMMAND_BLOCK);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§4Admin Panel");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7Click to open the admin panel");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
+            gui.setItem(48, adminButton);
         }
         
         // Close button
@@ -670,13 +683,32 @@ public class GUIManager {
         } else if (event.isCancelled()) {
             return "Event was cancelled";
         } else {
-            return "Cannot join at this time";
+            return "Unknown reason";
         }
     }
     
     public boolean canPlayerAccessEventGUI(Player player, Event event) {
-        // Check permissions based on event type
-        String permission = "swiftevents.event." + event.getType().name().toLowerCase();
+        if (player.hasPermission(Permissions.ADMIN_BASE)) {
+            return true;
+        }
+        String permission;
+        switch (event.getType()) {
+            case PVP:
+                permission = Permissions.EVENT_TYPE_PVP;
+                break;
+            case BUILDING:
+                permission = Permissions.EVENT_TYPE_BUILDING;
+                break;
+            case RACING:
+                permission = Permissions.EVENT_TYPE_RACING;
+                break;
+            case TREASURE_HUNT:
+                permission = Permissions.EVENT_TYPE_TREASURE;
+                break;
+            default:
+                permission = Permissions.EVENT_TYPE_CUSTOM;
+                break;
+        }
         return player.hasPermission(permission);
     }
     

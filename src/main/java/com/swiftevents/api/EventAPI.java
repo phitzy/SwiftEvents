@@ -217,7 +217,25 @@ public class EventAPI {
         return plugin;
     }
     
-    // ===== INTEGRATION METHODS =====
+    public GuiAPI getGuiAPI() {
+        return plugin.getGuiAPI();
+    }
+    
+    public HudAPI getHudAPI() {
+        return plugin.getHudAPI();
+    }
+    
+    public ChatAPI getChatAPI() {
+        return plugin.getChatAPI();
+    }
+    
+    public TaskerAPI getTaskerAPI() {
+        return plugin.getTaskerAPI();
+    }
+    
+    public LocationAPI getLocationAPI() {
+        return plugin.getLocationAPI();
+    }
     
     /**
      * Register an integration hook

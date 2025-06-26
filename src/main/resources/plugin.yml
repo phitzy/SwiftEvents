@@ -1,8 +1,8 @@
 name: SwiftEvents
-version: 1.0.0
+version: 1.0.6
 main: com.swiftevents.SwiftEventsPlugin
 api-version: 1.21
-author: phitsee
+authors: [phitsee]
 description: A comprehensive event system for PaperMC servers
 website: https://github.com/phitzy/SwiftEvents
 
@@ -11,206 +11,169 @@ commands:
     description: Main SwiftEvents command
     usage: /swiftevent <sub-command> [args]
     aliases: [swe, se, ev]
-    permission: swiftevents.user
+    permission: swiftevents.user.base
 
 permissions:
-  # Root permissions
   swiftevents.*:
-    description: All SwiftEvents permissions
-    children:
-      swiftevents.admin.*: true
-      swiftevents.user.*: true
-      swiftevents.event.*: true
-      swiftevents.bypass.*: true
-  
-  # Admin permissions
-  swiftevents.admin:
-    description: Basic admin permissions for SwiftEvents
-    default: op
-    children:
-      swiftevents.admin.create: true
-      swiftevents.admin.delete: true
-      swiftevents.admin.manage: true
-      swiftevents.admin.reload: true
-  swiftevents.admin.*:
-    description: All admin permissions
+    description: Grants all permissions for the SwiftEvents plugin.
     children:
       swiftevents.admin: true
-      swiftevents.admin.create: true
-      swiftevents.admin.delete: true
-      swiftevents.admin.manage: true
-      swiftevents.admin.start: true
-      swiftevents.admin.stop: true
-      swiftevents.admin.reload: true
-      swiftevents.admin.config: true
-      swiftevents.admin.tasker: true
-      swiftevents.admin.backup: true
-      swiftevents.admin.debug: true
-      swiftevents.admin.gui: true
-  swiftevents.admin.create:
-    description: Permission to create events
-    default: op
-  swiftevents.admin.delete:
-    description: Permission to delete events
-    default: op
-  swiftevents.admin.manage:
-    description: Permission to manage existing events
-    default: op
-  swiftevents.admin.start:
-    description: Permission to start events
-    default: op
-  swiftevents.admin.stop:
-    description: Permission to stop events
-    default: op
-  swiftevents.admin.reload:
-    description: Permission to reload configuration
-    default: op
-  swiftevents.admin.config:
-    description: Permission to modify configuration at runtime
-    default: op
-  swiftevents.admin.tasker:
-    description: Permission to manage event tasker
-    default: op
-  swiftevents.admin.backup:
-    description: Permission to create and manage backups
-    default: op
-  swiftevents.admin.debug:
-    description: Permission to use debug features
-    default: op
-  swiftevents.admin.gui:
-    description: Permission to access admin GUI
-    default: op
-  
-  # User permissions
-  swiftevents.user:
-    description: Basic user permissions for SwiftEvents
-    default: true
-    children:
-      swiftevents.user.join: true
-      swiftevents.user.leave: true
-      swiftevents.user.list: true
-      swiftevents.user.info: true
-      swiftevents.user.gui: true
-  swiftevents.user.*:
-    description: All user permissions
-    children:
       swiftevents.user: true
+      swiftevents.bypass.*: true
+
+  swiftevents.user:
+    description: Grants all user-level permissions.
+    default: true
+    children:
+      swiftevents.user.base: true
+      swiftevents.user.help: true
+      swiftevents.user.list: true
       swiftevents.user.join: true
       swiftevents.user.leave: true
-      swiftevents.user.list: true
-      swiftevents.user.info: true
-      swiftevents.user.teleport: true
-      swiftevents.user.gui: true
-      swiftevents.user.create: true
-  swiftevents.user.join:
-    description: Permission to join events
-    default: true
-  swiftevents.user.leave:
-    description: Permission to leave events
-    default: true
-  swiftevents.user.list:
-    description: Permission to list events
-    default: true
-  swiftevents.user.info:
-    description: Permission to view event information
-    default: true
-  swiftevents.user.teleport:
-    description: Permission to teleport to events
-    default: true
-  swiftevents.user.gui:
-    description: Permission to use event GUI
-    default: true
-  swiftevents.user.create:
-    description: Permission for users to create basic events
-    default: false
-  
-  # Event-type specific permissions
-  swiftevents.event.*:
-    description: All event type permissions
-    children:
+      swiftevents.user.tp: true
+      swiftevents.user.stats: true
       swiftevents.event.pvp: true
-      swiftevents.event.pve: true
+      swiftevents.event.treasure: true
       swiftevents.event.building: true
       swiftevents.event.racing: true
-      swiftevents.event.treasure: true
-      swiftevents.event.minigame: true
       swiftevents.event.custom: true
+
+  swiftevents.admin:
+    description: Grants all administrative permissions.
+    default: op
+    children:
+      swiftevents.user: true
+      swiftevents.reload: true
+      swiftevents.updatecheck: true
+      swiftevents.admin.create: true
+      swiftevents.admin.delete: true
+      swiftevents.admin.edit: true
+      swiftevents.admin.start: true
+      swiftevents.admin.stop: true
+      swiftevents.admin.clone: true
+      swiftevents.admin.setpos: true
+      swiftevents.admin.toggle: true
+      swiftevents.admin.participants: true
+      swiftevents.admin.tasker.*: true
+      swiftevents.bypass.*: true
+
+  # General Permissions
+  swiftevents.reload:
+    description: Allows reloading the plugin's configuration.
+    default: op
+  swiftevents.updatecheck:
+    description: Allows checking for plugin updates.
+    default: op
+
+  # User Permissions
+  swiftevents.user.base:
+    description: Basic permission to use the /swiftevent command.
+    default: true
+  swiftevents.user.help:
+    description: Allows using the help command.
+    default: true
+  swiftevents.user.list:
+    description: Allows listing available events.
+    default: true
+  swiftevents.user.join:
+    description: Allows joining events.
+    default: true
+  swiftevents.user.leave:
+    description: Allows leaving events.
+    default: true
+  swiftevents.user.tp:
+    description: Allows teleporting to an event.
+    default: op
+  swiftevents.user.stats:
+    description: Allows viewing event statistics.
+    default: true
+
+  # Admin Permissions
+  swiftevents.admin.create:
+    description: Allows creating new events.
+    default: op
+  swiftevents.admin.delete:
+    description: Allows deleting events.
+    default: op
+  swiftevents.admin.edit:
+    description: Allows editing existing events.
+    default: op
+  swiftevents.admin.start:
+    description: Allows manually starting events.
+    default: op
+  swiftevents.admin.stop:
+    description: Allows manually stopping events.
+    default: op
+  swiftevents.admin.clone:
+    description: Allows cloning existing events.
+    default: op
+  swiftevents.admin.setpos:
+    description: Allows setting event locations.
+    default: op
+  swiftevents.admin.toggle:
+    description: Allows toggling event properties.
+    default: op
+  swiftevents.admin.participants:
+    description: Allows managing event participants.
+    default: op
+
+  # Tasker Permissions
+  swiftevents.admin.tasker.*:
+    description: Grants all permissions for the event tasker.
+    default: op
+    children:
+      swiftevents.admin.tasker.start: true
+      swiftevents.admin.tasker.stop: true
+      swiftevents.admin.tasker.restart: true
+      swiftevents.admin.tasker.next: true
+      swiftevents.admin.tasker.status: true
+  swiftevents.admin.tasker.start:
+    description: Allows starting the event tasker.
+    default: op
+  swiftevents.admin.tasker.stop:
+    description: Allows stopping the event tasker.
+    default: op
+  swiftevents.admin.tasker.restart:
+    description: Allows restarting the event tasker.
+    default: op
+  swiftevents.admin.tasker.next:
+    description: Allows forcing the next event from the tasker.
+    default: op
+  swiftevents.admin.tasker.status:
+    description: Allows checking the status of the event tasker.
+    default: op
+
+  # Event Type Permissions
   swiftevents.event.pvp:
-    description: Permission to join PvP events
-    default: true
-  swiftevents.event.pve:
-    description: Permission to join PvE events
-    default: true
-  swiftevents.event.building:
-    description: Permission to join building events
-    default: true
-  swiftevents.event.racing:
-    description: Permission to join racing events
+    description: Permission to join PvP events.
     default: true
   swiftevents.event.treasure:
-    description: Permission to join treasure hunt events
+    description: Permission to join treasure hunt events.
     default: true
-  swiftevents.event.minigame:
-    description: Permission to join mini-game events
+  swiftevents.event.building:
+    description: Permission to join building events.
+    default: true
+  swiftevents.event.racing:
+    description: Permission to join racing events.
     default: true
   swiftevents.event.custom:
-    description: Permission to join custom events
+    description: Permission to join custom type events.
     default: true
-  
-  # Event creation permissions by type
-  swiftevents.create.*:
-    description: All event creation permissions
-    children:
-      swiftevents.create.pvp: true
-      swiftevents.create.pve: true
-      swiftevents.create.building: true
-      swiftevents.create.racing: true
-      swiftevents.create.treasure: true
-      swiftevents.create.minigame: true
-      swiftevents.create.custom: true
-  swiftevents.create.pvp:
-    description: Permission to create PvP events
-    default: op
-  swiftevents.create.pve:
-    description: Permission to create PvE events
-    default: op
-  swiftevents.create.building:
-    description: Permission to create building events
-    default: op
-  swiftevents.create.racing:
-    description: Permission to create racing events
-    default: op
-  swiftevents.create.treasure:
-    description: Permission to create treasure hunt events
-    default: op
-  swiftevents.create.minigame:
-    description: Permission to create mini-game events
-    default: op
-  swiftevents.create.custom:
-    description: Permission to create custom events
-    default: op
-  
-  # Bypass permissions
+
+  # Bypass Permissions
   swiftevents.bypass.*:
-    description: All bypass permissions
+    description: Grants all bypass permissions.
+    default: op
     children:
       swiftevents.bypass.cooldown: true
-      swiftevents.bypass.limits: true
-      swiftevents.bypass.full: true
-      swiftevents.bypass.requirements: true
+      swiftevents.bypass.maxevents: true
   swiftevents.bypass.cooldown:
-    description: Bypass event join cooldowns
+    description: Bypass the cooldown for joining events.
     default: op
-  swiftevents.bypass.limits:
-    description: Bypass event participation limits
+  swiftevents.bypass.maxevents:
+    description: Bypass the maximum number of concurrent events a player can join.
     default: op
-  swiftevents.bypass.full:
-    description: Join events even when full
-    default: op
-  swiftevents.bypass.requirements:
-    description: Bypass event requirements
-    default: op
-  
+
   # Feature-specific permissions
   swiftevents.notify:
     description: Receive event notifications
