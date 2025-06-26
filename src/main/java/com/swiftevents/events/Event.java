@@ -5,6 +5,34 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Event {
     
+    public static class EventLocation {
+        private final String worldName;
+        private final double x, y, z;
+
+        public EventLocation(String worldName, double x, double y, double z) {
+            this.worldName = worldName;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        public String getWorldName() {
+            return worldName;
+        }
+
+        public double getX() {
+            return x;
+        }
+
+        public double getY() {
+            return y;
+        }
+
+        public double getZ() {
+            return z;
+        }
+    }
+    
     public enum EventType {
         PVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM
     }
@@ -13,36 +41,41 @@ public class Event {
         CREATED, SCHEDULED, ACTIVE, PAUSED, COMPLETED, CANCELLED
     }
     
-    private String id;
+    private final String id;
     private String name;
     private String description;
     private EventType type;
     private EventStatus status;
     private int maxParticipants;
     private int currentParticipants;
-    private Long startTime;
-    private Long endTime;
+    private long startTime; // Use primitive long instead of Long
+    private long endTime; // Use primitive long instead of Long
     private UUID createdBy;
-    private long createdAt;
+    private final long createdAt; // Make immutable
     
-    // Location data
+    // Location data - optimize by using primitives and nullability flag
     private String world;
     private double x, y, z;
+    private boolean hasLocation = false; // Flag to check if location is set
     
-    // Participants - Using ConcurrentHashMap.newKeySet() for thread safety
-    private Set<UUID> participants;
+    // Participants - Using smaller initial capacity and load factor optimization
+    private final Set<UUID> participants;
     
-    // Rewards and requirements
+    // Rewards and requirements - Use ArrayList with smaller initial capacity
     private List<String> rewards;
     private Map<String, Object> requirements;
     
-    // Additional metadata
+    // Additional metadata - Lazy initialization
     private Map<String, Object> metadata;
     
-    // Optimization: Cache frequently computed values
-    private transient String formattedRemainingTime = null;
+    // Optimization: Cache frequently computed values with invalidation
+    private transient String cachedFormattedTime = null;
     private transient long lastTimeCalculation = 0;
     private static final long TIME_CACHE_DURATION = 1000; // 1 second cache
+    
+    // Optimization: String builder pool for thread-safe formatting
+    private static final ThreadLocal<StringBuilder> STRING_BUILDER = 
+        ThreadLocal.withInitial(() -> new StringBuilder(64));
     
     public Event(String id, String name, String description, EventType type) {
         this.id = id != null ? id : UUID.randomUUID().toString();
@@ -54,11 +87,11 @@ public class Event {
         this.currentParticipants = 0;
         this.createdAt = System.currentTimeMillis();
         
-        // Optimization: Use concurrent collections for thread safety
-        this.participants = ConcurrentHashMap.newKeySet();
-        this.rewards = new ArrayList<>();
-        this.requirements = new ConcurrentHashMap<>();
-        this.metadata = new ConcurrentHashMap<>();
+        // Optimization: Start with smaller collections and proper load factors
+        this.participants = ConcurrentHashMap.newKeySet(4); // Start small
+        this.rewards = new ArrayList<>(2); // Most events have few rewards
+        this.requirements = new HashMap<>(4, 0.75f); // Standard load factor
+        // metadata will be lazily initialized
     }
     
     // Constructor for creating new events
@@ -69,10 +102,6 @@ public class Event {
     // Getters and Setters
     public String getId() {
         return id;
-    }
-    
-    public void setId(String id) {
-        this.id = id;
     }
     
     public String getName() {
@@ -125,20 +154,20 @@ public class Event {
         this.currentParticipants = currentParticipants;
     }
     
-    public Long getStartTime() {
+    public long getStartTime() {
         return startTime;
     }
     
-    public void setStartTime(Long startTime) {
+    public void setStartTime(long startTime) {
         this.startTime = startTime;
         clearTimeCache();
     }
     
-    public Long getEndTime() {
+    public long getEndTime() {
         return endTime;
     }
     
-    public void setEndTime(Long endTime) {
+    public void setEndTime(long endTime) {
         this.endTime = endTime;
         clearTimeCache();
     }
@@ -153,10 +182,6 @@ public class Event {
     
     public long getCreatedAt() {
         return createdAt;
-    }
-    
-    public void setCreatedAt(long createdAt) {
-        this.createdAt = createdAt;
     }
     
     public String getWorld() {
@@ -175,15 +200,29 @@ public class Event {
         return z;
     }
     
+    public boolean hasLocation() {
+        return hasLocation;
+    }
+    
     public void setLocation(String world, double x, double y, double z) {
         this.world = world;
         this.x = x;
         this.y = y;
         this.z = z;
+        this.hasLocation = true;
     }
     
+    public void clearLocation() {
+        this.world = null;
+        this.x = 0;
+        this.y = 0;
+        this.z = 0;
+        this.hasLocation = false;
+    }
+    
+    // Optimization: Return view instead of copy for participants
     public Set<UUID> getParticipants() {
-        return new HashSet<>(participants);
+        return Collections.unmodifiableSet(participants);
     }
     
     public void setParticipants(Set<UUID> participants) {
@@ -198,6 +237,7 @@ public class Event {
         if (maxParticipants > 0 && participants.size() >= maxParticipants) {
             return false;
         }
+        
         boolean added = participants.add(playerId);
         if (added) {
             currentParticipants = participants.size();
@@ -213,177 +253,226 @@ public class Event {
         return removed;
     }
     
-    // Optimization: Direct participant check without creating new collection
     public boolean isParticipant(UUID playerId) {
         return participants.contains(playerId);
     }
-
+    
     public boolean isFull() {
         return maxParticipants > 0 && participants.size() >= maxParticipants;
     }
-
+    
     public boolean hasUnlimitedSlots() {
         return maxParticipants <= 0;
     }
-
+    
     public int getAvailableSlots() {
-        return hasUnlimitedSlots() ? Integer.MAX_VALUE : Math.max(0, maxParticipants - participants.size());
+        return maxParticipants <= 0 ? Integer.MAX_VALUE : Math.max(0, maxParticipants - participants.size());
     }
-
+    
+    // Rewards management with lazy initialization
     public List<String> getRewards() {
-        return new ArrayList<>(rewards);
+        return rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
     }
-
+    
     public void setRewards(List<String> rewards) {
-        this.rewards = rewards != null ? new ArrayList<>(rewards) : new ArrayList<>();
+        if (rewards == null || rewards.isEmpty()) {
+            this.rewards = null; // Save memory when empty
+        } else {
+            this.rewards = new ArrayList<>(rewards);
+        }
     }
-
+    
     public void addReward(String reward) {
-        this.rewards.add(reward);
+        if (rewards == null) {
+            rewards = new ArrayList<>(2);
+        }
+        rewards.add(reward);
     }
-
+    
     public void removeReward(String reward) {
-        this.rewards.remove(reward);
+        if (rewards != null) {
+            rewards.remove(reward);
+            if (rewards.isEmpty()) {
+                rewards = null; // Save memory when empty
+            }
+        }
     }
-
+    
+    // Requirements management
     public Map<String, Object> getRequirements() {
-        return new HashMap<>(requirements);
+        return requirements != null ? new HashMap<>(requirements) : new HashMap<>();
     }
-
+    
     public void setRequirements(Map<String, Object> requirements) {
-        this.requirements.clear();
-        if (requirements != null) {
-            this.requirements.putAll(requirements);
+        if (requirements == null || requirements.isEmpty()) {
+            this.requirements = null;
+        } else {
+            this.requirements = new HashMap<>(requirements);
         }
     }
-
+    
     public void addRequirement(String key, Object value) {
-        this.requirements.put(key, value);
+        if (requirements == null) {
+            requirements = new HashMap<>(4, 0.75f);
+        }
+        requirements.put(key, value);
     }
-
+    
     public void removeRequirement(String key) {
-        this.requirements.remove(key);
-    }
-
-    public Object getRequirement(String key) {
-        return this.requirements.get(key);
-    }
-
-    public Map<String, Object> getMetadata() {
-        return new HashMap<>(metadata);
-    }
-
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata.clear();
-        if (metadata != null) {
-            this.metadata.putAll(metadata);
+        if (requirements != null) {
+            requirements.remove(key);
+            if (requirements.isEmpty()) {
+                requirements = null;
+            }
         }
     }
-
+    
+    public Object getRequirement(String key) {
+        return requirements != null ? requirements.get(key) : null;
+    }
+    
+    // Metadata management with lazy initialization
+    public Map<String, Object> getMetadata() {
+        return metadata != null ? new HashMap<>(metadata) : new HashMap<>();
+    }
+    
+    public void setMetadata(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            this.metadata = null;
+        } else {
+            this.metadata = new HashMap<>(metadata);
+        }
+    }
+    
     public void addMetadata(String key, Object value) {
-        this.metadata.put(key, value);
+        if (metadata == null) {
+            metadata = new HashMap<>(4, 0.75f);
+        }
+        metadata.put(key, value);
     }
-
+    
     public void removeMetadata(String key) {
-        this.metadata.remove(key);
+        if (metadata != null) {
+            metadata.remove(key);
+            if (metadata.isEmpty()) {
+                metadata = null;
+            }
+        }
     }
-
+    
     public Object getMetadata(String key) {
-        return this.metadata.get(key);
+        return metadata != null ? metadata.get(key) : null;
     }
-
+    
     // Status check methods
     public boolean isActive() {
         return status == EventStatus.ACTIVE;
     }
-
+    
     public boolean isCompleted() {
         return status == EventStatus.COMPLETED;
     }
-
+    
     public boolean isCancelled() {
         return status == EventStatus.CANCELLED;
     }
-
+    
     public boolean isScheduled() {
         return status == EventStatus.SCHEDULED;
     }
-
+    
     public boolean canJoin() {
-        return (status == EventStatus.CREATED || status == EventStatus.SCHEDULED) && !isFull();
+        return (status == EventStatus.CREATED || status == EventStatus.SCHEDULED || status == EventStatus.ACTIVE) 
+               && !isFull();
     }
-
+    
     public boolean canStart() {
         return status == EventStatus.CREATED || status == EventStatus.SCHEDULED;
     }
-
+    
     public boolean hasStarted() {
-        return startTime != null && System.currentTimeMillis() >= startTime;
+        return startTime > 0 && System.currentTimeMillis() >= startTime;
     }
-
+    
     public boolean hasEnded() {
-        return endTime != null && System.currentTimeMillis() >= endTime;
+        return endTime > 0 && System.currentTimeMillis() >= endTime;
     }
-
+    
     public long getDuration() {
-        if (startTime == null || endTime == null) {
+        if (startTime <= 0 || endTime <= 0) {
             return 0;
         }
-        return endTime - startTime;
+        return Math.max(0, endTime - startTime);
     }
-
+    
     public long getRemainingTime() {
-        if (endTime == null) {
-            return 0;
+        if (endTime <= 0) {
+            return Long.MAX_VALUE; // Unlimited time
         }
         return Math.max(0, endTime - System.currentTimeMillis());
     }
-
-    // Optimized formatted remaining time with caching
+    
+    // Optimized time formatting with caching and string builder
     public String getFormattedRemainingTime() {
         long currentTime = System.currentTimeMillis();
         
-        // Use cached value if it's recent enough
-        if (formattedRemainingTime != null && (currentTime - lastTimeCalculation) < TIME_CACHE_DURATION) {
-            return formattedRemainingTime;
+        // Check if cached value is still valid
+        if (cachedFormattedTime != null && (currentTime - lastTimeCalculation) < TIME_CACHE_DURATION) {
+            return cachedFormattedTime;
         }
         
         long remaining = getRemainingTime();
-        formattedRemainingTime = formatTimeString(remaining);
+        cachedFormattedTime = formatTimeString(remaining);
         lastTimeCalculation = currentTime;
         
-        return formattedRemainingTime;
+        return cachedFormattedTime;
     }
     
-    // Optimized time formatting
+    // Optimized time formatting using ThreadLocal StringBuilder
     private String formatTimeString(long milliseconds) {
-        if (milliseconds <= 0) {
-            return "0s";
+        if (milliseconds == Long.MAX_VALUE) {
+            return "Unlimited";
         }
+        
+        if (milliseconds <= 0) {
+            return "Ended";
+        }
+        
+        StringBuilder sb = STRING_BUILDER.get();
+        sb.setLength(0); // Clear the builder
         
         long seconds = milliseconds / 1000;
-        long hours = seconds / 3600;
-        long minutes = (seconds % 3600) / 60;
-        long secs = seconds % 60;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
         
-        StringBuilder sb = new StringBuilder(16);
-        
+        if (days > 0) {
+            sb.append(days).append("d ");
+            hours %= 24;
+        }
         if (hours > 0) {
             sb.append(hours).append("h ");
+            minutes %= 60;
         }
-        if (minutes > 0 || hours > 0) {
+        if (minutes > 0) {
             sb.append(minutes).append("m ");
         }
-        sb.append(secs).append("s");
+        if (days == 0 && hours == 0) { // Only show seconds for shorter durations
+            seconds %= 60;
+            if (minutes == 0 || seconds > 0) {
+                sb.append(seconds).append("s");
+            }
+        }
         
-        return sb.toString();
+        String result = sb.toString().trim();
+        return result.isEmpty() ? "0s" : result;
     }
     
     private void clearTimeCache() {
-        formattedRemainingTime = null;
+        cachedFormattedTime = null;
         lastTimeCalculation = 0;
     }
-
+    
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -391,16 +480,29 @@ public class Event {
         Event event = (Event) obj;
         return Objects.equals(id, event.id);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hash(id);
     }
-
+    
     @Override
     public String toString() {
-        return String.format("Event{id='%s', name='%s', type=%s, status=%s, participants=%d/%s}", 
-                id, name, type, status, currentParticipants, 
-                maxParticipants > 0 ? String.valueOf(maxParticipants) : "∞");
+        StringBuilder sb = STRING_BUILDER.get();
+        sb.setLength(0);
+        sb.append("Event{id='").append(id)
+          .append("', name='").append(name)
+          .append("', type=").append(type)
+          .append("', status=").append(status)
+          .append("', participants=").append(participants.size())
+          .append('}');
+        return sb.toString();
+    }
+
+    public EventLocation getLocation() {
+        if (!hasLocation) {
+            return null;
+        }
+        return new EventLocation(world, x, y, z);
     }
 } 

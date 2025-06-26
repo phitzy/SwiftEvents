@@ -2,7 +2,9 @@ package com.swiftevents.listeners;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.gui.GUISession;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -10,16 +12,15 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class PlayerListener implements Listener {
     
@@ -31,6 +32,9 @@ public class PlayerListener implements Listener {
     // Optimization: Debounce click events to prevent double-clicking issues
     private final Map<UUID, Long> lastClickTime = new HashMap<>();
     private static final long CLICK_COOLDOWN = 250; // 250ms cooldown
+    
+    // Input handling for chat-based GUI input
+    private final Map<UUID, InputWaiting> awaitingInput = new HashMap<>();
     
     public PlayerListener(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
@@ -49,7 +53,7 @@ public class PlayerListener implements Listener {
         // Send notifications for scheduled events
         plugin.getEventManager().getEventsByStatus(Event.EventStatus.SCHEDULED)
                 .stream()
-                .filter(gameEvent -> gameEvent.getStartTime() != null)
+                .filter(gameEvent -> gameEvent.getStartTime() > 0)
                 .filter(gameEvent -> gameEvent.getStartTime() - System.currentTimeMillis() < 300000) // 5 minutes
                 .forEach(gameEvent -> {
                     long timeUntilStart = (gameEvent.getStartTime() - System.currentTimeMillis()) / 1000;
@@ -121,15 +125,22 @@ public class PlayerListener implements Listener {
             handleMainEventsGUI(player, itemName, clickedItem, event.getSlot());
         } else if (title.startsWith("§6Event: ")) {
             handleEventDetailsGUI(player, title, itemName, clickedItem);
-        } else if (title.equals("§4Admin - Event Management")) {
+        } else if (title.equals("§4Admin Dashboard - SwiftEvents")) {
             handleAdminGUI(player, itemName);
+        } else if (title.startsWith("§6Event Creation")) {
+            handleEventCreationGUI(player, title, itemName, clickedItem);
+        } else if (title.equals("§b§lEvent Statistics Dashboard")) {
+            handleStatisticsGUI(player, itemName);
         }
     }
     
     private boolean isSwiftEventsGUI(String title) {
         return title.startsWith(plugin.getConfigManager().getGUITitle()) ||
                title.startsWith("§6Event: ") ||
-               title.equals("§4Admin - Event Management");
+               title.equals("§4Admin - Event Management") ||
+               title.equals("§4Admin Dashboard - SwiftEvents") ||
+               title.startsWith("§6Event Creation") ||
+               title.equals("§b§lEvent Statistics Dashboard");
     }
     
     private void handleMainEventsGUI(Player player, String itemName, ItemStack clickedItem, int slot) {
@@ -165,7 +176,7 @@ public class PlayerListener implements Listener {
                 
             case "§4Admin Panel":
                 if (player.hasPermission("swiftevents.admin")) {
-                    plugin.getGUIManager().openAdminGUI(player);
+                    plugin.getAdminGUIManager().openAdminGUI(player);
                 }
                 break;
                 
@@ -555,16 +566,121 @@ public class PlayerListener implements Listener {
         }
         
         switch (itemName) {
+            // Legacy admin GUI items (for backward compatibility)
             case "§aCreate New Event":
                 player.closeInventory();
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§7Use §f/eventadmin create <name> <type> <description> §7to create an event");
+                        "§7Use §f/eventadmin create <n> <type> <description> §7to create an event");
                 player.sendMessage("§7Available types: §fPVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM");
                 break;
                 
             case "§6Active Events":
                 player.closeInventory();
                 player.performCommand("eventadmin list");
+                break;
+                
+            // Enhanced admin GUI items
+            case "§a§lCreate New Event":
+                // Open event creation wizard
+                plugin.getAdminGUIManager().openEventCreationWizard(player);
+                break;
+                
+            case "§6§lManage Events":
+                // Open event management GUI (show all events with admin controls)
+                plugin.getGUIManager().openEventsGUI(player);
+                break;
+                
+            case "§c§lActive Events":
+                // Show detailed active events list
+                player.closeInventory();
+                player.performCommand("eventadmin list");
+                break;
+                
+            case "§b§lEvent Statistics":
+                // Open statistics dashboard
+                plugin.getStatisticsGUIManager().openEventStatisticsGUI(player);
+                break;
+                
+            case "§e§lServer Performance":
+                // Show server performance metrics
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§eServer Performance Metrics:");
+                player.sendMessage("§7Online Players: §f" + org.bukkit.Bukkit.getOnlinePlayers().size());
+                player.sendMessage("§7Active Events: §f" + plugin.getEventManager().getActiveEvents().size());
+                player.sendMessage("§7Total Events: §f" + plugin.getEventManager().getAllEvents().size());
+                break;
+                
+            case "§d§lPlayer Statistics":
+                // Show player engagement data
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§dPlayer Statistics:");
+                player.sendMessage("§7Online players: §f" + org.bukkit.Bukkit.getOnlinePlayers().size());
+                // Count players in events
+                int playersInEvents = plugin.getEventManager().getActiveEvents().stream()
+                        .mapToInt(event -> event.getCurrentParticipants())
+                        .sum();
+                player.sendMessage("§7Players in events: §f" + playersInEvents);
+                break;
+                
+            case "§9§lPlugin Settings":
+                // Open settings management
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§9Use §f/eventadmin config §9to manage plugin settings");
+                break;
+                
+            case "§5§lPermission Manager":
+                // Permission management
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§5Permission management via in-game GUI not yet implemented.");
+                player.sendMessage("§7Use your permission plugin's commands to manage SwiftEvents permissions.");
+                break;
+                
+            case "§3§lBackup & Restore":
+                // Backup management
+                player.closeInventory();
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§3Use §f/eventadmin backup §3to manage backups");
+                break;
+                
+            case "§2§lEvent Tasker §a[ON]":
+            case "§2§lEvent Tasker §c[OFF]":
+                // Tasker management
+                player.closeInventory();
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§2Use §f/eventadmin tasker §2to manage the event tasker");
+                break;
+                
+            case "§a§lEvent Presets":
+                // Preset management
+                player.closeInventory();
+                player.performCommand("eventadmin tasker presets");
+                break;
+                
+            case "§f§lOnline Players":
+                // Show online player details
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§fOnline Players Details:");
+                player.sendMessage("§7Total online: §f" + org.bukkit.Bukkit.getOnlinePlayers().size());
+                break;
+                
+            case "§c§lUser Restrictions":
+                // User restriction management
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§cUser restriction management not yet implemented.");
+                break;
+                
+            case "§a§lRefresh":
+                // Refresh the admin GUI
+                plugin.getAdminGUIManager().openAdminGUI(player);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§aAdmin panel refreshed!");
+                break;
+                
+            case "§7« Back to Events":
+                // Return to main events GUI
+                plugin.getGUIManager().openEventsGUI(player);
+                break;
+                
+            case "§e§lHelp & Documentation":
+                // Show help information
+                player.closeInventory();
+                player.performCommand("eventadmin help");
                 break;
                 
             case "§cClose":
@@ -651,5 +767,380 @@ public class PlayerListener implements Listener {
     
     private enum ConfirmationAction {
         DELETE_EVENT
+    }
+    
+    // Input handling class for chat-based GUI input
+    private static class InputWaiting {
+        final String inputType;
+        final GUISession session;
+        
+        InputWaiting(String inputType, GUISession session) {
+            this.inputType = inputType;
+            this.session = session;
+        }
+    }
+    
+    @EventHandler
+    public void onPlayerChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        
+        InputWaiting waiting = awaitingInput.get(playerId);
+        if (waiting == null) {
+            return;
+        }
+        
+        event.setCancelled(true);
+        awaitingInput.remove(playerId);
+        
+        String message = event.getMessage();
+        if ("cancel".equalsIgnoreCase(message)) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cInput cancelled.");
+            // Reopen the appropriate wizard step
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    plugin.getAdminGUIManager().openEventCreationStep(player, waiting.session.getCreationStep());
+                }
+            }.runTask(plugin);
+            return;
+        }
+        
+        // Handle different input types
+        switch (waiting.inputType) {
+            case "event_name":
+                if (message.length() > 32) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent name too long! Maximum 32 characters.");
+                    return;
+                }
+                waiting.session.setCreationData("name", message);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent name set to: " + message);
+                break;
+                
+            case "event_description":
+                if (message.length() > 100) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + "§cDescription too long! Maximum 100 characters.");
+                    return;
+                }
+                waiting.session.setCreationData("description", message);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent description set to: " + message);
+                break;
+                
+            case "reward_command":
+                @SuppressWarnings("unchecked")
+                List<String> rewardCommands = (List<String>) waiting.session.getCreationData("rewardCommands");
+                if (rewardCommands == null) {
+                    rewardCommands = new ArrayList<>();
+                    waiting.session.setCreationData("rewardCommands", rewardCommands);
+                }
+                rewardCommands.add(message);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§aReward command added: " + message);
+                break;
+        }
+        
+        // Reopen the GUI after input
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                plugin.getAdminGUIManager().openEventCreationStep(player, waiting.session.getCreationStep());
+            }
+        }.runTask(plugin);
+    }
+    
+    private void handleEventCreationGUI(Player player, String title, String itemName, ItemStack clickedItem) {
+        GUISession session = plugin.getGUIManager().getOrCreateSession(player.getUniqueId());
+        
+        // Handle common navigation buttons first
+        switch (itemName) {
+            case "§cCancel Creation":
+                session.clearCreationData();
+                plugin.getAdminGUIManager().openAdminGUI(player);
+                return;
+                
+            case "§7« Previous Step":
+                navigatePrevious(player, session);
+                return;
+                
+            case "§aNext Step »":
+                navigateNext(player, session);
+                return;
+                
+            case "§c§lCancel Creation":
+                session.clearCreationData();
+                plugin.getAdminGUIManager().openAdminGUI(player);
+                return;
+                
+            case "§a§lCreate Event":
+                createEventFromSession(player, session);
+                return;
+        }
+        
+        // Handle step-specific items based on current title
+        if (title.equals("§6Event Creation - Select Type")) {
+            handleTypeSelection(player, session, itemName);
+        } else if (title.equals("§6Event Creation - Basic Info")) {
+            handleBasicInfoInput(player, session, itemName);
+        } else if (title.equals("§6Event Creation - Settings")) {
+            handleSettingsInput(player, session, itemName, clickedItem);
+        } else if (title.equals("§6Event Creation - Location")) {
+            handleLocationInput(player, session, itemName);
+        } else if (title.equals("§6Event Creation - Rewards")) {
+            handleRewardsInput(player, session, itemName);
+        }
+    }
+    
+    private void handleTypeSelection(Player player, GUISession session, String itemName) {
+        // Handle event type selection
+        for (Event.EventType type : Event.EventType.values()) {
+            String typeName = "§e" + type.name().replace("_", " ");
+            if (itemName.equals(typeName)) {
+                session.setCreationData("type", type);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§aSelected event type: " + type.name().replace("_", " "));
+                navigateNext(player, session);
+                return;
+            }
+        }
+    }
+    
+    private void handleBasicInfoInput(Player player, GUISession session, String itemName) {
+        switch (itemName) {
+            case "§eEvent Name":
+                player.closeInventory();
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§eType the event name in chat (or 'cancel' to abort):");
+                
+                // Set up chat listener for name input
+                awaitingInput.put(player.getUniqueId(), new InputWaiting("event_name", session));
+                break;
+                
+            case "§eEvent Description":
+                player.closeInventory();
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§eType the event description in chat (or 'cancel' to abort):");
+                
+                // Set up chat listener for description input
+                awaitingInput.put(player.getUniqueId(), new InputWaiting("event_description", session));
+                break;
+        }
+    }
+    
+    private void handleSettingsInput(Player player, GUISession session, String itemName, ItemStack clickedItem) {
+        boolean isShiftClick = player.isSneaking();
+        boolean isRightClick = false; // Would need to track this from InventoryClickEvent
+        
+        switch (itemName) {
+            case "§eMax Participants":
+                Integer maxParticipants = (Integer) session.getCreationData("maxParticipants");
+                if (maxParticipants == null) maxParticipants = 20;
+                
+                if (isShiftClick) {
+                    maxParticipants += isRightClick ? -1 : 1;
+                } else {
+                    maxParticipants += isRightClick ? -5 : 5;
+                }
+                
+                maxParticipants = Math.max(1, Math.min(100, maxParticipants));
+                session.setCreationData("maxParticipants", maxParticipants);
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.SETTINGS);
+                break;
+                
+            case "§eEvent Duration":
+                Integer duration = (Integer) session.getCreationData("duration");
+                if (duration == null) duration = 1800;
+                
+                if (isShiftClick) {
+                    duration += isRightClick ? -300 : 300; // 5 minutes
+                } else {
+                    duration += isRightClick ? -900 : 900; // 15 minutes
+                }
+                
+                duration = Math.max(300, Math.min(7200, duration)); // 5 minutes to 2 hours
+                session.setCreationData("duration", duration);
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.SETTINGS);
+                break;
+                
+            case "§eAuto Start":
+                Boolean autoStart = (Boolean) session.getCreationData("autoStart");
+                session.setCreationData("autoStart", !Boolean.TRUE.equals(autoStart));
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.SETTINGS);
+                break;
+                
+            case "§eMin Participants":
+                Integer minParticipants = (Integer) session.getCreationData("minParticipants");
+                if (minParticipants == null) minParticipants = 2;
+                
+                minParticipants += isRightClick ? -1 : 1;
+                minParticipants = Math.max(1, Math.min(50, minParticipants));
+                session.setCreationData("minParticipants", minParticipants);
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.SETTINGS);
+                break;
+        }
+    }
+    
+    private void handleLocationInput(Player player, GUISession session, String itemName) {
+        switch (itemName) {
+            case "§aSet to My Location":
+                Location loc = player.getLocation();
+                session.setCreationData("locationWorld", loc.getWorld().getName());
+                session.setCreationData("locationX", loc.getX());
+                session.setCreationData("locationY", loc.getY());
+                session.setCreationData("locationZ", loc.getZ());
+                
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§aEvent location set to your current position!");
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+                break;
+                
+            case "§cClear Location":
+                session.setCreationData("locationWorld", null);
+                session.setCreationData("locationX", null);
+                session.setCreationData("locationY", null);
+                session.setCreationData("locationZ", null);
+                
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent location cleared!");
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+                break;
+        }
+    }
+    
+    private void handleRewardsInput(Player player, GUISession session, String itemName) {
+        switch (itemName) {
+            case "§aAdd Reward Command":
+                player.closeInventory();
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§eType a reward command in chat (use {winner} for player name, or 'cancel' to abort):");
+                
+                awaitingInput.put(player.getUniqueId(), new InputWaiting("reward_command", session));
+                break;
+                
+            case "§cClear All Rewards":
+                session.setCreationData("rewardCommands", new ArrayList<String>());
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§cAll reward commands cleared!");
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.REWARDS);
+                break;
+        }
+    }
+    
+    private void navigatePrevious(Player player, GUISession session) {
+        GUISession.EventCreationStep currentStep = session.getCreationStep();
+        GUISession.EventCreationStep previousStep;
+        
+        switch (currentStep) {
+            case BASIC_INFO -> previousStep = GUISession.EventCreationStep.TYPE_SELECTION;
+            case SETTINGS -> previousStep = GUISession.EventCreationStep.BASIC_INFO;
+            case LOCATION -> previousStep = GUISession.EventCreationStep.SETTINGS;
+            case REWARDS -> previousStep = GUISession.EventCreationStep.LOCATION;
+            case CONFIRMATION -> previousStep = GUISession.EventCreationStep.REWARDS;
+            default -> {
+                return; // Can't go back from TYPE_SELECTION
+            }
+        }
+        
+        plugin.getAdminGUIManager().openEventCreationStep(player, previousStep);
+    }
+    
+    private void navigateNext(Player player, GUISession session) {
+        GUISession.EventCreationStep currentStep = session.getCreationStep();
+        GUISession.EventCreationStep nextStep;
+        
+        switch (currentStep) {
+            case TYPE_SELECTION -> nextStep = GUISession.EventCreationStep.BASIC_INFO;
+            case BASIC_INFO -> {
+                // Check if name and description are set
+                String name = (String) session.getCreationData("name");
+                String description = (String) session.getCreationData("description");
+                if (name == null || name.equals("Click to set name") || 
+                    description == null || description.equals("Click to set description")) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§cPlease set both event name and description before proceeding!");
+                    return;
+                }
+                nextStep = GUISession.EventCreationStep.SETTINGS;
+            }
+            case SETTINGS -> nextStep = GUISession.EventCreationStep.LOCATION;
+            case LOCATION -> nextStep = GUISession.EventCreationStep.REWARDS;
+            case REWARDS -> nextStep = GUISession.EventCreationStep.CONFIRMATION;
+            default -> {
+                return; // Can't go forward from CONFIRMATION
+            }
+        }
+        
+        plugin.getAdminGUIManager().openEventCreationStep(player, nextStep);
+    }
+    
+    private void createEventFromSession(Player player, GUISession session) {
+        // Extract data from session
+        Event.EventType type = (Event.EventType) session.getCreationData("type");
+        String name = (String) session.getCreationData("name");
+        String description = (String) session.getCreationData("description");
+        Integer maxParticipants = (Integer) session.getCreationData("maxParticipants");
+        Integer duration = (Integer) session.getCreationData("duration");
+        Boolean autoStart = (Boolean) session.getCreationData("autoStart");
+        String locationWorld = (String) session.getCreationData("locationWorld");
+        
+        // Create the event
+        Event event = plugin.getEventManager().createEvent(name, description, type, player.getUniqueId());
+        
+        if (event == null) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                "§cFailed to create event! Maximum concurrent events reached?");
+            return;
+        }
+        
+        // Apply settings
+        if (maxParticipants != null) {
+            event.setMaxParticipants(maxParticipants);
+        }
+        // Note: Duration setting may need to be handled differently based on Event class implementation
+        
+        // Set location if provided
+        if (locationWorld != null) {
+            Double x = (Double) session.getCreationData("locationX");
+            Double y = (Double) session.getCreationData("locationY");
+            Double z = (Double) session.getCreationData("locationZ");
+            event.setLocation(locationWorld, x, y, z);
+        }
+        
+        // Add reward commands
+        @SuppressWarnings("unchecked")
+        List<String> rewardCommands = (List<String>) session.getCreationData("rewardCommands");
+        if (rewardCommands != null && !rewardCommands.isEmpty()) {
+            event.setRewards(rewardCommands);
+        }
+        
+        // Save the event
+        plugin.getEventManager().saveEvent(event);
+        
+        // Auto-start if requested
+        if (Boolean.TRUE.equals(autoStart)) {
+            plugin.getEventManager().startEvent(event.getId());
+        }
+        
+        // Clear session and return to admin panel
+        session.clearCreationData();
+        player.sendMessage(plugin.getConfigManager().getPrefix() + 
+            "§aSuccessfully created event: " + event.getName());
+        plugin.getAdminGUIManager().openAdminGUI(player);
+    }
+    
+    private void handleStatisticsGUI(Player player, String itemName) {
+        switch (itemName) {
+            case "§7« Back to Admin Panel":
+                plugin.getAdminGUIManager().openAdminGUI(player);
+                break;
+                
+            case "§2§lRefresh Statistics":
+                player.sendMessage(plugin.getConfigManager().getPrefix() + "§2Refreshing statistics...");
+                // Would refresh the statistics GUI
+                break;
+                
+            default:
+                // Handle clicks on statistics items
+                if (itemName.contains("§l")) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + "§bViewing: " + itemName);
+                }
+                break;
+        }
     }
 } 

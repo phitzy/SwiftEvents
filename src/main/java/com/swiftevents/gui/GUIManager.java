@@ -8,67 +8,318 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class GUIManager {
     
     private final SwiftEventsPlugin plugin;
     
+    // Optimization: Concurrent session management with cleanup
+    private final Map<UUID, GUISession> activeSessions = new ConcurrentHashMap<>(32);
+    private final Map<UUID, Long> sessionLastAccess = new ConcurrentHashMap<>(32);
+    
+    // Optimization: ItemStack pooling to reduce garbage collection
+    private final Map<String, ItemStack> itemCache = new HashMap<>(64);
+    private final Map<String, Long> itemCacheTimestamps = new HashMap<>(64);
+    
+    // Optimization: Pre-allocated collections
+    private final List<Event> eventBuffer = new ArrayList<>(32);
+    private final List<String> loreBuffer = new ArrayList<>(8);
+    
+    // Optimization: String builder pool
+    private static final ThreadLocal<StringBuilder> STRING_BUILDER = 
+        ThreadLocal.withInitial(() -> new StringBuilder(128));
+    
+    // Cache management
+    private static final long SESSION_TIMEOUT = 600000; // 10 minutes
+    private static final long ITEM_CACHE_DURATION = 300000; // 5 minutes
+    private static final long CLEANUP_INTERVAL = 60000; // 1 minute
+    
+    private BukkitTask cleanupTask;
+    
     public GUIManager(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
+        
+        // Start periodic cleanup task
+        startCleanupTask();
     }
     
+    private void startCleanupTask() {
+        cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, 
+            this::cleanupExpiredData, 20L * 60, 20L * 60); // Every minute
+    }
+    
+    private void cleanupExpiredData() {
+        long currentTime = System.currentTimeMillis();
+        
+        // Clean up expired sessions
+        Iterator<Map.Entry<UUID, Long>> sessionIterator = sessionLastAccess.entrySet().iterator();
+        while (sessionIterator.hasNext()) {
+            Map.Entry<UUID, Long> entry = sessionIterator.next();
+            if (currentTime - entry.getValue() > SESSION_TIMEOUT) {
+                sessionIterator.remove();
+                activeSessions.remove(entry.getKey());
+            }
+        }
+        
+        // Clean up expired item cache
+        Iterator<Map.Entry<String, Long>> itemIterator = itemCacheTimestamps.entrySet().iterator();
+        while (itemIterator.hasNext()) {
+            Map.Entry<String, Long> entry = itemIterator.next();
+            if (currentTime - entry.getValue() > ITEM_CACHE_DURATION) {
+                itemIterator.remove();
+                itemCache.remove(entry.getKey());
+            }
+        }
+    }
+    
+    public GUISession getOrCreateSession(UUID playerId) {
+        sessionLastAccess.put(playerId, System.currentTimeMillis());
+        return activeSessions.computeIfAbsent(playerId, GUISession::new);
+    }
+    
+    public void removeSession(UUID playerId) {
+        activeSessions.remove(playerId);
+        sessionLastAccess.remove(playerId);
+    }
+    
+    // Optimization: Efficient event filtering without creating intermediate streams
+    private List<Event> filterEvents(List<Event> events, EventFilter filter, Player player) {
+        eventBuffer.clear();
+        
+        for (Event event : events) {
+            if (filter.matches(event, player)) {
+                eventBuffer.add(event);
+            }
+        }
+        
+        return new ArrayList<>(eventBuffer);
+    }
+    
+    private List<Event> sortEvents(List<Event> events, EventSort sort) {
+        events.sort(sort.getComparator());
+        return events;
+    }
+    
+    // Enhanced Events GUI with filtering and sorting
     public void openEventsGUI(Player player) {
-        openEventsGUI(player, 0); // Open first page by default
+        openEventsGUI(player, 0, EventFilter.ALL, EventSort.NAME); 
     }
     
     public void openEventsGUI(Player player, int page) {
+        openEventsGUI(player, page, EventFilter.ALL, EventSort.NAME);
+    }
+    
+    public void openEventsGUI(Player player, int page, EventFilter filter, EventSort sort) {
         if (!plugin.getConfigManager().isGUIEnabled()) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + "§cGUI is currently disabled.");
             return;
         }
         
-        List<Event> events = plugin.getEventManager().getAllEvents();
+        // Create or update GUI session
+        GUISession session = getOrCreateSession(player.getUniqueId());
+        session.setCurrentFilter(filter);
+        session.setCurrentSort(sort);
+        session.setCurrentPage(page);
+        
+        List<Event> allEvents = plugin.getEventManager().getAllEvents();
+        List<Event> filteredEvents = filterEvents(allEvents, filter, player);
+        List<Event> sortedEvents = sortEvents(filteredEvents, sort);
         
         // Handle empty events list
-        if (events.isEmpty()) {
-            Inventory gui = Bukkit.createInventory(null, 9, plugin.getConfigManager().getGUITitle());
-            
-            ItemStack noEvents = new ItemStack(Material.BARRIER);
-            ItemMeta noEventsMeta = noEvents.getItemMeta();
-            noEventsMeta.setDisplayName("§cNo Events Available");
-            noEventsMeta.setLore(Arrays.asList("§7There are currently no events.", "§7Check back later!"));
-            noEvents.setItemMeta(noEventsMeta);
-            gui.setItem(4, noEvents);
-            
-            addNavigationItems(gui, player, page, 0);
-            player.openInventory(gui);
+        if (sortedEvents.isEmpty()) {
+            openEmptyEventsGUI(player, filter);
             return;
         }
         
         // Pagination calculation
-        int eventsPerPage = 36; // 4 rows for events, leaving room for navigation
-        int totalPages = (int) Math.ceil((double) events.size() / eventsPerPage);
-        page = Math.max(0, Math.min(page, totalPages - 1)); // Clamp page to valid range
+        int eventsPerPage = 28; // 4 rows for events, more room for controls
+        int totalPages = (int) Math.ceil((double) sortedEvents.size() / eventsPerPage);
+        page = Math.max(0, Math.min(page, totalPages - 1));
         
-        int size = 54; // Fixed size for consistency
-        Inventory gui = Bukkit.createInventory(null, size, plugin.getConfigManager().getGUITitle() + " (Page " + (page + 1) + "/" + totalPages + ")");
+        int size = 54;
+        
+        // Optimization: Use StringBuilder for title construction
+        StringBuilder titleBuilder = STRING_BUILDER.get();
+        titleBuilder.setLength(0);
+        titleBuilder.append(plugin.getConfigManager().getGUITitle())
+                   .append(" (").append(page + 1).append("/").append(totalPages).append(")");
+        
+        if (filter != EventFilter.ALL) {
+            titleBuilder.append(" [").append(filter.getDisplayName()).append("]");
+        }
+        
+        String title = titleBuilder.toString();
+        Inventory gui = Bukkit.createInventory(null, size, title);
         
         // Add events for current page
         int startIndex = page * eventsPerPage;
-        int endIndex = Math.min(startIndex + eventsPerPage, events.size());
+        int endIndex = Math.min(startIndex + eventsPerPage, sortedEvents.size());
         
-        int slot = 0;
         for (int i = startIndex; i < endIndex; i++) {
-            Event event = events.get(i);
+            Event event = sortedEvents.get(i);
             ItemStack item = createEventItem(event, player);
-            gui.setItem(slot, item);
-            slot++;
+            gui.setItem(i - startIndex, item);
         }
         
+        // Add filter and sort controls
+        addFilterControls(gui, player, filter, sort);
         addNavigationItems(gui, player, page, totalPages);
+        
         player.openInventory(gui);
+    }
+    
+    private void openEmptyEventsGUI(Player player, EventFilter filter) {
+        Inventory gui = Bukkit.createInventory(null, 54, plugin.getConfigManager().getGUITitle());
+        
+        // Use cached barrier item
+        ItemStack noEvents = getCachedItem("barrier_no_events", () -> {
+            ItemStack item = new ItemStack(Material.BARRIER);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§cNo Events Available");
+                loreBuffer.clear();
+                loreBuffer.add("§7There are currently no events.");
+                loreBuffer.add("§7Check back later!");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        
+        // Customize based on filter
+        if (filter != EventFilter.ALL) {
+            ItemStack customNoEvents = noEvents.clone();
+            ItemMeta meta = customNoEvents.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§cNo " + filter.getDisplayName() + " Events");
+                loreBuffer.clear();
+                loreBuffer.add("§7No events match the current filter.");
+                loreBuffer.add("§7Try changing the filter or check back later!");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                customNoEvents.setItemMeta(meta);
+            }
+            gui.setItem(22, customNoEvents);
+        } else {
+            gui.setItem(22, noEvents);
+        }
+        
+        addFilterControls(gui, player, filter, EventSort.NAME);
+        addNavigationItems(gui, player, 0, 0);
+        player.openInventory(gui);
+    }
+    
+    // Optimization: ItemStack caching with supplier pattern
+    private ItemStack getCachedItem(String cacheKey, ItemStackSupplier supplier) {
+        long currentTime = System.currentTimeMillis();
+        
+        ItemStack cached = itemCache.get(cacheKey);
+        Long cacheTime = itemCacheTimestamps.get(cacheKey);
+        
+        if (cached != null && cacheTime != null && 
+            (currentTime - cacheTime) < ITEM_CACHE_DURATION) {
+            return cached.clone(); // Return clone to prevent modification
+        }
+        
+        ItemStack newItem = supplier.get();
+        itemCache.put(cacheKey, newItem.clone());
+        itemCacheTimestamps.put(cacheKey, currentTime);
+        
+        return newItem;
+    }
+    
+    @FunctionalInterface
+    private interface ItemStackSupplier {
+        ItemStack get();
+    }
+    
+    private void addFilterControls(Inventory gui, Player player, EventFilter currentFilter, EventSort currentSort) {
+        // Filter button - use cached base item
+        ItemStack filterButton = getCachedItem("filter_button_base", () -> {
+            ItemStack item = new ItemStack(Material.HOPPER);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§6Filter Events");
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        
+        // Customize for current filter
+        ItemMeta filterMeta = filterButton.getItemMeta();
+        if (filterMeta != null) {
+            filterMeta.setDisplayName("§6Filter: " + currentFilter.getDisplayName());
+            
+            loreBuffer.clear();
+            loreBuffer.add("§7Current filter: §f" + currentFilter.getDisplayName());
+            loreBuffer.add("");
+            loreBuffer.add("§7Available filters:");
+            
+            for (EventFilter filter : EventFilter.values()) {
+                String prefix = filter == currentFilter ? "§a▶ " : "§7- ";
+                loreBuffer.add(prefix + filter.getDisplayName());
+            }
+            loreBuffer.add("");
+            loreBuffer.add("§eClick to change filter");
+            
+            filterMeta.setLore(new ArrayList<>(loreBuffer));
+            filterButton.setItemMeta(filterMeta);
+        }
+        gui.setItem(45, filterButton);
+        
+        // Sort button - similar optimization
+        ItemStack sortButton = getCachedItem("sort_button_base", () -> {
+            ItemStack item = new ItemStack(Material.COMPARATOR);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§6Sort Events");
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        
+        ItemMeta sortMeta = sortButton.getItemMeta();
+        if (sortMeta != null) {
+            sortMeta.setDisplayName("§6Sort: " + currentSort.getDisplayName());
+            
+            loreBuffer.clear();
+            loreBuffer.add("§7Current sort: §f" + currentSort.getDisplayName());
+            loreBuffer.add("");
+            loreBuffer.add("§7Available sorts:");
+            
+            for (EventSort sort : EventSort.values()) {
+                String prefix = sort == currentSort ? "§a▶ " : "§7- ";
+                loreBuffer.add(prefix + sort.getDisplayName());
+            }
+            loreBuffer.add("");
+            loreBuffer.add("§eClick to change sort");
+            
+            sortMeta.setLore(new ArrayList<>(loreBuffer));
+            sortButton.setItemMeta(sortMeta);
+        }
+        gui.setItem(46, sortButton);
+        
+        // Statistics button - cached
+        ItemStack statsButton = getCachedItem("stats_button", () -> {
+            ItemStack item = new ItemStack(Material.BOOK);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§bEvent Statistics");
+                loreBuffer.clear();
+                loreBuffer.add("§7View detailed event statistics");
+                loreBuffer.add("§7and analytics dashboard");
+                loreBuffer.add("");
+                loreBuffer.add("§eClick to view statistics");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        gui.setItem(47, statsButton);
     }
     
     public void openAdminGUI(Player player) {
@@ -80,167 +331,205 @@ public class GUIManager {
         
         Inventory gui = Bukkit.createInventory(null, 45, "§4Admin - Event Management");
         
-        // Create basic admin items
-        ItemStack createEvent = new ItemStack(Material.EMERALD);
-        ItemMeta createMeta = createEvent.getItemMeta();
-        createMeta.setDisplayName("§aCreate New Event");
-        createMeta.setLore(Arrays.asList("§7Click to create a new event"));
-        createEvent.setItemMeta(createMeta);
+        // Use cached admin items
+        ItemStack createEvent = getCachedItem("admin_create", () -> {
+            ItemStack item = new ItemStack(Material.EMERALD);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§aCreate New Event");
+                loreBuffer.clear();
+                loreBuffer.add("§7Click to create a new event");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
         gui.setItem(10, createEvent);
         
-        ItemStack activeEvents = new ItemStack(Material.CLOCK);
-        ItemMeta activeMeta = activeEvents.getItemMeta();
-        activeMeta.setDisplayName("§6Active Events");
-        activeMeta.setLore(Arrays.asList("§7View active events"));
-        activeEvents.setItemMeta(activeMeta);
+        ItemStack activeEvents = getCachedItem("admin_active", () -> {
+            ItemStack item = new ItemStack(Material.CLOCK);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§6Active Events");
+                loreBuffer.clear();
+                loreBuffer.add("§7View and manage active events");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
         gui.setItem(12, activeEvents);
         
-        ItemStack close = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = close.getItemMeta();
-        closeMeta.setDisplayName("§cClose");
-        close.setItemMeta(closeMeta);
+        ItemStack close = getCachedItem("close_button", () -> {
+            ItemStack item = new ItemStack(Material.BARRIER);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§cClose");
+                loreBuffer.clear();
+                loreBuffer.add("§7Close this GUI");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
         gui.setItem(40, close);
         
         player.openInventory(gui);
     }
     
     public void openEventDetailsGUI(Player player, Event event) {
-        Inventory gui = Bukkit.createInventory(null, 45, "§6Event: " + event.getName());
+        if (event == null) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent not found!");
+            return;
+        }
         
-        // Event info item
-        ItemStack info = createEventItem(event, player);
-        gui.setItem(13, info);
+        Inventory gui = Bukkit.createInventory(null, 54, "§6Event: " + event.getName());
         
-        // Join/Leave button
-        ItemStack joinLeave;
-        if (event.isParticipant(player.getUniqueId())) {
-            joinLeave = new ItemStack(Material.RED_CONCRETE);
-            ItemMeta leaveMeta = joinLeave.getItemMeta();
-            leaveMeta.setDisplayName("§cLeave Event");
-            leaveMeta.setLore(Arrays.asList(
-                    "§7You are currently participating",
-                    "",
-                    "§eClick to leave this event"
-            ));
-            joinLeave.setItemMeta(leaveMeta);
-        } else {
-            joinLeave = new ItemStack(Material.GREEN_CONCRETE);
-            ItemMeta joinMeta = joinLeave.getItemMeta();
-            joinMeta.setDisplayName("§aJoin Event");
-            if (event.canJoin()) {
-                joinMeta.setLore(Arrays.asList(
-                        "§7Join this event",
-                        "",
-                        "§eClick to participate"
-                ));
+        // Event info item - dynamically generated due to changing data
+        ItemStack eventInfo = new ItemStack(getEventMaterial(event));
+        ItemMeta infoMeta = eventInfo.getItemMeta();
+        if (infoMeta != null) {
+            infoMeta.setDisplayName("§6" + event.getName());
+            
+            loreBuffer.clear();
+            loreBuffer.add("§7Type: §f" + event.getType().name());
+            loreBuffer.add("§7Status: " + getStatusColor(event.getStatus()) + event.getStatus().name());
+            loreBuffer.add("§7Participants: §f" + event.getCurrentParticipants() + 
+                          (event.hasUnlimitedSlots() ? " (Unlimited)" : "/" + event.getMaxParticipants()));
+            
+            if (event.hasLocation()) {
+                loreBuffer.add("§7Location: §f" + event.getWorld() + " " + 
+                              (int)event.getX() + ", " + (int)event.getY() + ", " + (int)event.getZ());
+            }
+            
+            if (event.getStartTime() > 0) {
+                loreBuffer.add("§7Remaining: §f" + event.getFormattedRemainingTime());
+            }
+            
+            loreBuffer.add("");
+            loreBuffer.add("§7Description:");
+            loreBuffer.add("§f" + event.getDescription());
+            
+            if (event.isParticipant(player.getUniqueId())) {
+                loreBuffer.add("");
+                loreBuffer.add("§a✓ You are participating in this event");
+            } else if (event.canJoin()) {
+                loreBuffer.add("");
+                loreBuffer.add("§eClick to join this event!");
             } else {
-                joinMeta.setDisplayName("§cCannot Join");
-                joinMeta.setLore(Arrays.asList(
-                        "§7This event is not joinable",
-                        "",
-                        "§cReason: " + getJoinBlockReason(event)
-                ));
+                loreBuffer.add("");
+                loreBuffer.add("§c" + getJoinBlockReason(event));
             }
-            joinLeave.setItemMeta(joinMeta);
+            
+            infoMeta.setLore(new ArrayList<>(loreBuffer));
+            eventInfo.setItemMeta(infoMeta);
         }
-        gui.setItem(20, joinLeave);
+        gui.setItem(13, eventInfo);
         
-        // Participants list
-        ItemStack participants = new ItemStack(Material.PLAYER_HEAD);
-        ItemMeta partMeta = participants.getItemMeta();
-        partMeta.setDisplayName("§9Participants");
-        List<String> partLore = new ArrayList<>();
-        partLore.add("§7Current participants:");
-        partLore.add("");
-        
-        Set<UUID> eventParticipants = event.getParticipants();
-        if (eventParticipants.isEmpty()) {
-            partLore.add("§7No participants yet");
-        } else {
-            int count = 0;
-            for (UUID participantId : eventParticipants) {
-                if (count >= 10) {
-                    partLore.add("§7... and " + (eventParticipants.size() - count) + " more");
-                    break;
+        // Action buttons
+        if (event.isParticipant(player.getUniqueId())) {
+            ItemStack leaveButton = getCachedItem("leave_button", () -> {
+                ItemStack item = new ItemStack(Material.RED_CONCRETE);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§cLeave Event");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7Click to leave this event");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
                 }
-                Player participant = Bukkit.getPlayer(participantId);
-                String name = participant != null ? participant.getName() : "Unknown";
-                partLore.add("§f- " + name);
-                count++;
-            }
+                return item;
+            });
+            gui.setItem(29, leaveButton);
+        } else if (event.canJoin()) {
+            ItemStack joinButton = getCachedItem("join_button", () -> {
+                ItemStack item = new ItemStack(Material.GREEN_CONCRETE);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§aJoin Event");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7Click to join this event");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
+            gui.setItem(29, joinButton);
         }
         
-        partMeta.setLore(partLore);
-        participants.setItemMeta(partMeta);
-        gui.setItem(24, participants);
+        // Teleport button if location is set
+        if (event.hasLocation()) {
+            ItemStack teleportButton = getCachedItem("teleport_button", () -> {
+                ItemStack item = new ItemStack(Material.ENDER_PEARL);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§bTeleport to Event");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7Click to teleport to the event location");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
+            gui.setItem(31, teleportButton);
+        }
         
-        // Admin controls (if player has permission)
+        // Admin controls
         if (player.hasPermission("swiftevents.admin")) {
             addAdminControls(gui, event);
         }
         
         // Back button
-        ItemStack back = new ItemStack(Material.ARROW);
-        ItemMeta backMeta = back.getItemMeta();
-        backMeta.setDisplayName("§7← Back");
-        backMeta.setLore(Arrays.asList("§7Return to events list"));
-        back.setItemMeta(backMeta);
-        gui.setItem(36, back);
+        ItemStack backButton = getCachedItem("back_button", () -> {
+            ItemStack item = new ItemStack(Material.ARROW);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§7← Back to Events");
+                loreBuffer.clear();
+                loreBuffer.add("§7Return to the events list");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        gui.setItem(45, backButton);
         
         player.openInventory(gui);
     }
     
+    // Optimization: Efficient event item creation with caching where possible
     private ItemStack createEventItem(Event event, Player player) {
-        Material material = getEventMaterial(event);
-        ItemStack item = new ItemStack(material);
+        ItemStack item = new ItemStack(getEventMaterial(event));
         ItemMeta meta = item.getItemMeta();
+        if (meta == null) return item;
         
-        String statusColor = getStatusColor(event.getStatus());
-        meta.setDisplayName(statusColor + event.getName());
+        meta.setDisplayName("§6" + event.getName());
         
-        List<String> lore = new ArrayList<>();
-        lore.add("§7Type: §f" + event.getType().name());
-        lore.add("§7Status: " + statusColor + event.getStatus().name());
-        lore.add("§7Participants: §f" + event.getCurrentParticipants() + "/" + 
-                (event.getMaxParticipants() > 0 ? event.getMaxParticipants() : "∞"));
+        // Build lore efficiently
+        loreBuffer.clear();
+        loreBuffer.add("§7Type: §f" + event.getType().name());
+        loreBuffer.add("§7Status: " + getStatusColor(event.getStatus()) + event.getStatus().name());
+        loreBuffer.add("§7Participants: §f" + event.getCurrentParticipants() + 
+                      (event.hasUnlimitedSlots() ? " (Unlimited)" : "/" + event.getMaxParticipants()));
         
-        // Add creator information if available
-        if (event.getCreatedBy() != null) {
-            Player creator = Bukkit.getPlayer(event.getCreatedBy());
-            String creatorName = creator != null ? creator.getName() : "Unknown";
-            lore.add("§7Creator: §f" + creatorName);
+        if (event.getStartTime() > 0) {
+            loreBuffer.add("§7Time: §f" + event.getFormattedRemainingTime());
         }
         
-        // Add location information if available
-        if (event.getWorld() != null) {
-            lore.add("§7Location: §f" + event.getWorld() + " (" + 
-                    (int)event.getX() + ", " + (int)event.getY() + ", " + (int)event.getZ() + ")");
-        }
+        loreBuffer.add("");
+        loreBuffer.add("§7" + event.getDescription());
+        loreBuffer.add("");
         
-        lore.add(""); // Empty line for separation
-        
-        // Player-specific information
         if (event.isParticipant(player.getUniqueId())) {
-            lore.add("§a✓ You are participating");
-            lore.add("§7Shift+Click to leave quickly");
+            loreBuffer.add("§a✓ Participating");
         } else if (event.canJoin()) {
-            // Check if player has permission for this event type
-            if (canPlayerAccessEventGUI(player, event)) {
-                lore.add("§eClick to view details");
-                lore.add("§7Shift+Click to join quickly");
-            } else {
-                lore.add("§c✗ No permission for this event type");
-            }
+            loreBuffer.add("§eClick to join!");
         } else {
-            lore.add("§c✗ Cannot join: " + getJoinBlockReason(event));
+            loreBuffer.add("§c" + getJoinBlockReason(event));
         }
         
-        lore.add("");
-        lore.add("§7Click for more details");
-        
-        meta.setLore(lore);
+        meta.setLore(new ArrayList<>(loreBuffer));
         item.setItemMeta(meta);
-        
         return item;
     }
     
@@ -249,102 +538,107 @@ public class GUIManager {
     }
     
     private void addNavigationItems(Inventory gui, Player player, int currentPage, int totalPages) {
-        int size = gui.getSize();
-        
-        // Previous page button
+        // Previous page
         if (currentPage > 0) {
-            ItemStack prevPage = new ItemStack(Material.ARROW);
-            ItemMeta prevMeta = prevPage.getItemMeta();
-            prevMeta.setDisplayName("§7← Previous Page");
-            prevMeta.setLore(Arrays.asList("§7Go to page " + currentPage));
-            prevPage.setItemMeta(prevMeta);
-            gui.setItem(size - 9, prevPage);
+            ItemStack prevPage = getCachedItem("prev_page", () -> {
+                ItemStack item = new ItemStack(Material.ARROW);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§7← Previous Page");
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
+            gui.setItem(48, prevPage);
         }
         
         // Page info
         ItemStack pageInfo = new ItemStack(Material.PAPER);
         ItemMeta pageMeta = pageInfo.getItemMeta();
-        pageMeta.setDisplayName("§6Page " + (currentPage + 1) + "/" + totalPages);
-        pageMeta.setLore(Arrays.asList("§7You are viewing page " + (currentPage + 1)));
-        pageInfo.setItemMeta(pageMeta);
-        gui.setItem(size - 5, pageInfo);
-        
-        // Next page button
-        if (currentPage < totalPages - 1) {
-            ItemStack nextPage = new ItemStack(Material.ARROW);
-            ItemMeta nextMeta = nextPage.getItemMeta();
-            nextMeta.setDisplayName("§7Next Page →");
-            nextMeta.setLore(Arrays.asList("§7Go to page " + (currentPage + 2)));
-            nextPage.setItemMeta(nextMeta);
-            gui.setItem(size - 1, nextPage);
+        if (pageMeta != null) {
+            pageMeta.setDisplayName("§7Page " + (currentPage + 1) + " of " + totalPages);
+            pageInfo.setItemMeta(pageMeta);
         }
+        gui.setItem(49, pageInfo);
         
-        // Refresh button
-        ItemStack refresh = new ItemStack(Material.EMERALD);
-        ItemMeta refreshMeta = refresh.getItemMeta();
-        refreshMeta.setDisplayName("§aRefresh");
-        refreshMeta.setLore(Arrays.asList("§7Update the events list"));
-        refresh.setItemMeta(refreshMeta);
-        gui.setItem(size - 8, refresh);
+        // Next page
+        if (currentPage < totalPages - 1) {
+            ItemStack nextPage = getCachedItem("next_page", () -> {
+                ItemStack item = new ItemStack(Material.ARROW);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§7Next Page →");
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
+            gui.setItem(50, nextPage);
+        }
         
         // Close button
-        ItemStack close = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = close.getItemMeta();
-        closeMeta.setDisplayName("§cClose");
-        closeMeta.setLore(Arrays.asList("§7Close this menu"));
-        close.setItemMeta(closeMeta);
-        gui.setItem(size - 2, close);
-        
-        // Admin panel button (if player has permission)
-        if (player.hasPermission("swiftevents.admin")) {
-            ItemStack adminPanel = new ItemStack(Material.COMMAND_BLOCK);
-            ItemMeta adminMeta = adminPanel.getItemMeta();
-            adminMeta.setDisplayName("§4Admin Panel");
-            adminMeta.setLore(Arrays.asList("§7Open the admin panel"));
-            adminPanel.setItemMeta(adminMeta);
-            gui.setItem(size - 6, adminPanel);
-        }
+        ItemStack close = getCachedItem("close_button", () -> {
+            ItemStack item = new ItemStack(Material.BARRIER);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§cClose");
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        gui.setItem(53, close);
     }
     
     private void addAdminControls(Inventory gui, Event event) {
-        // Start/Stop button
-        ItemStack control;
+        // Start/Stop event button
+        ItemStack controlButton;
         if (event.isActive()) {
-            control = new ItemStack(Material.RED_CONCRETE);
-            ItemMeta stopMeta = control.getItemMeta();
-            stopMeta.setDisplayName("§cStop Event");
-            stopMeta.setLore(Arrays.asList("§7End this event", "", "§eClick to stop"));
-            control.setItemMeta(stopMeta);
+            controlButton = getCachedItem("admin_stop", () -> {
+                ItemStack item = new ItemStack(Material.RED_CONCRETE);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§cStop Event");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7End this event");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
         } else if (event.canStart()) {
-            control = new ItemStack(Material.GREEN_CONCRETE);
-            ItemMeta startMeta = control.getItemMeta();
-            startMeta.setDisplayName("§aStart Event");
-            startMeta.setLore(Arrays.asList("§7Start this event", "", "§eClick to start"));
-            control.setItemMeta(startMeta);
+            controlButton = getCachedItem("admin_start", () -> {
+                ItemStack item = new ItemStack(Material.GREEN_CONCRETE);
+                ItemMeta meta = item.getItemMeta();
+                if (meta != null) {
+                    meta.setDisplayName("§aStart Event");
+                    loreBuffer.clear();
+                    loreBuffer.add("§7Start this event");
+                    meta.setLore(new ArrayList<>(loreBuffer));
+                    item.setItemMeta(meta);
+                }
+                return item;
+            });
         } else {
-            control = new ItemStack(Material.GRAY_CONCRETE);
-            ItemMeta grayMeta = control.getItemMeta();
-            grayMeta.setDisplayName("§7Cannot Control");
-            grayMeta.setLore(Arrays.asList("§7Event cannot be controlled", "§7in its current state"));
-            control.setItemMeta(grayMeta);
+            return; // No control available
         }
-        gui.setItem(29, control);
+        gui.setItem(37, controlButton);
         
-        // Delete button
-        ItemStack delete = new ItemStack(Material.TNT);
-        ItemMeta deleteMeta = delete.getItemMeta();
-        deleteMeta.setDisplayName("§cDelete Event");
-        deleteMeta.setLore(Arrays.asList(
-                "§7Permanently delete this event",
-                "",
-                "§c§lWarning: §cThis cannot be undone!",
-                "§eClick to delete"
-        ));
-        delete.setItemMeta(deleteMeta);
-        gui.setItem(33, delete);
+        // Delete event button
+        ItemStack deleteButton = getCachedItem("admin_delete", () -> {
+            ItemStack item = new ItemStack(Material.TNT);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§cDelete Event");
+                loreBuffer.clear();
+                loreBuffer.add("§7§lWARNING: This cannot be undone!");
+                loreBuffer.add("§7Right-click to delete this event");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        gui.setItem(43, deleteButton);
     }
     
-    // Utility methods
     private Material getEventMaterial(Event event) {
         return switch (event.getType()) {
             case PVP -> Material.DIAMOND_SWORD;
@@ -352,7 +646,7 @@ public class GUIManager {
             case BUILDING -> Material.BRICKS;
             case RACING -> Material.GOLDEN_BOOTS;
             case TREASURE_HUNT -> Material.CHEST;
-            case MINI_GAME -> Material.JUKEBOX;
+            case MINI_GAME -> Material.LIME_CONCRETE;
             case CUSTOM -> Material.COMMAND_BLOCK;
         };
     }
@@ -371,64 +665,41 @@ public class GUIManager {
     private String getJoinBlockReason(Event event) {
         if (event.isFull()) {
             return "Event is full";
-        }
-        if (event.isCompleted()) {
+        } else if (event.isCompleted()) {
             return "Event has ended";
-        }
-        if (event.isCancelled()) {
+        } else if (event.isCancelled()) {
             return "Event was cancelled";
+        } else {
+            return "Cannot join at this time";
         }
-        return "Event not accepting participants";
     }
     
-    // Additional utility methods for GUI functionality
     public boolean canPlayerAccessEventGUI(Player player, Event event) {
-        // Check if player has permission for this event type
-        String eventTypePermission = "swiftevents.event." + event.getType().name().toLowerCase();
-        return player.hasPermission("swiftevents.user") && 
-               player.hasPermission(eventTypePermission);
+        // Check permissions based on event type
+        String permission = "swiftevents.event." + event.getType().name().toLowerCase();
+        return player.hasPermission(permission);
     }
     
     public void refreshCurrentGUI(Player player) {
-        String title = player.getOpenInventory().getTitle();
+        GUISession session = activeSessions.get(player.getUniqueId());
+        if (session != null) {
+            openEventsGUI(player, session.getCurrentPage(), 
+                         session.getCurrentFilter(), session.getCurrentSort());
+        }
+    }
+    
+    public void shutdown() {
+        // Cancel cleanup task
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+        }
         
-        if (title.startsWith(plugin.getConfigManager().getGUITitle())) {
-            // Extract page from title and refresh events GUI
-            int page = extractPageFromTitle(title);
-            openEventsGUI(player, page);
-        } else if (title.startsWith("§6Event: ")) {
-            // Refresh event details GUI
-            String eventName = title.substring("§6Event: ".length());
-            Event event = findEventByName(eventName);
-            if (event != null) {
-                openEventDetailsGUI(player, event);
-            }
-        } else if (title.equals("§4Admin - Event Management")) {
-            // Refresh admin GUI
-            openAdminGUI(player);
-        }
-    }
-    
-    private int extractPageFromTitle(String title) {
-        // Extract page number from titles like "Events (Page 2/5)"
-        if (title.contains("(Page ")) {
-            try {
-                int start = title.indexOf("(Page ") + 6;
-                int end = title.indexOf("/", start);
-                if (start > 5 && end > start) {
-                    return Integer.parseInt(title.substring(start, end)) - 1; // Convert to 0-based
-                }
-            } catch (NumberFormatException e) {
-                // Ignore and return 0
-            }
-        }
-        return 0; // Default to first page
-    }
-    
-    private Event findEventByName(String name) {
-        return plugin.getEventManager().getAllEvents().stream()
-                .filter(event -> event.getName().equalsIgnoreCase(name))
-                .findFirst()
-                .orElse(null);
+        // Clear all caches and sessions
+        activeSessions.clear();
+        sessionLastAccess.clear();
+        itemCache.clear();
+        itemCacheTimestamps.clear();
+        
+        plugin.getLogger().info("GUIManager shutdown complete");
     }
 } 

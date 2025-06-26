@@ -7,17 +7,10 @@ description: A comprehensive event system for PaperMC servers
 website: https://github.com/swiftevents/SwiftEvents
 
 commands:
-  event:
-    description: Main event command for users
-    usage: /event <join|leave|list|info> [event_name]
-    permission: swiftevents.user
-  eventadmin:
-    description: Admin commands for managing events
-    usage: /eventadmin <create|delete|start|stop|list|gui|reload|config> [args...]
-    permission: swiftevents.admin
-  eventgui:
-    description: Open the events GUI
-    usage: /eventgui
+  swiftevent:
+    description: Main SwiftEvents command
+    usage: /swiftevent <sub-command> [args]
+    aliases: [swe, se, ev]
     permission: swiftevents.user
 
 permissions:

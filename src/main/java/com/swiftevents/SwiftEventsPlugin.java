@@ -3,13 +3,13 @@ package com.swiftevents;
 import com.swiftevents.api.EventAPI;
 import com.swiftevents.api.SwiftEventsAPI;
 import com.swiftevents.api.hooks.HookManager;
-import com.swiftevents.commands.EventCommand;
-import com.swiftevents.commands.EventAdminCommand;
-import com.swiftevents.commands.EventGUICommand;
+import com.swiftevents.commands.SwiftEventCommand;
 import com.swiftevents.config.ConfigManager;
 import com.swiftevents.database.DatabaseManager;
 import com.swiftevents.events.EventManager;
 import com.swiftevents.gui.GUIManager;
+import com.swiftevents.gui.AdminGUIManager;
+import com.swiftevents.gui.StatisticsGUIManager;
 import com.swiftevents.hud.HUDManager;
 import com.swiftevents.listeners.PlayerListener;
 import com.swiftevents.tasker.EventTasker;
@@ -23,6 +23,8 @@ public class SwiftEventsPlugin extends JavaPlugin {
     private DatabaseManager databaseManager;
     private EventManager eventManager;
     private GUIManager guiManager;
+    private AdminGUIManager adminGUIManager;
+    private StatisticsGUIManager statisticsGUIManager;
     private HUDManager hudManager;
     private EventAPI eventAPI;
     private EventTasker eventTasker;
@@ -98,6 +100,8 @@ public class SwiftEventsPlugin extends JavaPlugin {
         // Initialize managers
         eventManager = new EventManager(this);
         guiManager = new GUIManager(this);
+        adminGUIManager = new AdminGUIManager(this, guiManager);
+        statisticsGUIManager = new StatisticsGUIManager(this);
         hudManager = new HUDManager(this);
         
         // Initialize API
@@ -114,9 +118,7 @@ public class SwiftEventsPlugin extends JavaPlugin {
     }
     
     private void registerCommands() {
-        getCommand("event").setExecutor(new EventCommand(this));
-        getCommand("eventadmin").setExecutor(new EventAdminCommand(this));
-        getCommand("eventgui").setExecutor(new EventGUICommand(this));
+        getCommand("swiftevent").setExecutor(new SwiftEventCommand(this));
     }
     
     private void registerListeners() {
@@ -142,6 +144,14 @@ public class SwiftEventsPlugin extends JavaPlugin {
     
     public GUIManager getGUIManager() {
         return guiManager;
+    }
+    
+    public AdminGUIManager getAdminGUIManager() {
+        return adminGUIManager;
+    }
+    
+    public StatisticsGUIManager getStatisticsGUIManager() {
+        return statisticsGUIManager;
     }
     
     public HUDManager getHUDManager() {
