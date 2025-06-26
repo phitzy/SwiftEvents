@@ -2,15 +2,21 @@ package com.swiftevents.commands;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.tasker.EventTasker;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.Location;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
-public class SwiftEventCommand implements CommandExecutor {
+public class SwiftEventCommand implements CommandExecutor, TabCompleter {
 
     private final SwiftEventsPlugin plugin;
 
@@ -125,6 +131,9 @@ public class SwiftEventCommand implements CommandExecutor {
                 break;
             case "backup":
                 handleBackup(sender, args);
+                break;
+            case "location":
+                handleLocationCommand(sender, Arrays.copyOfRange(args, 1, args.length));
                 break;
             case "help":
                 showAdminHelp(sender);
@@ -521,7 +530,8 @@ public class SwiftEventCommand implements CommandExecutor {
 
     private void handleReload(CommandSender sender) {
         plugin.getConfigManager().reloadConfig();
-        sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aConfiguration reloaded.");
+        plugin.getEventTasker().restart();
+        sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aConfiguration reloaded and event tasker restarted.");
     }
 
     private void handleTasker(CommandSender sender, String[] args) {
@@ -529,19 +539,67 @@ public class SwiftEventCommand implements CommandExecutor {
             showTaskerHelp(sender);
             return;
         }
+
         String taskerAction = args[1].toLowerCase();
+        EventTasker tasker = plugin.getEventTasker();
+
         switch (taskerAction) {
-            case "list":
-                // Logic to list tasks
-                sender.sendMessage("Tasker list functionality coming soon.");
+            case "start":
+                if (!sender.hasPermission("swiftevents.admin.tasker.start")) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                    return;
+                }
+                if (tasker.isRunning()) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent tasker is already running.");
+                } else {
+                    tasker.start();
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent tasker started.");
+                }
                 break;
-            case "add":
-                // Logic to add a task
-                sender.sendMessage("Tasker add functionality coming soon.");
+            case "stop":
+                if (!sender.hasPermission("swiftevents.admin.tasker.stop")) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                    return;
+                }
+                if (!tasker.isRunning()) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent tasker is not running.");
+                } else {
+                    tasker.stop();
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent tasker stopped.");
+                }
                 break;
-            case "remove":
-                // Logic to remove a task
-                sender.sendMessage("Tasker remove functionality coming soon.");
+            case "restart":
+                if (!sender.hasPermission("swiftevents.admin.tasker.restart")) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                    return;
+                }
+                tasker.restart();
+                sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aEvent tasker restarted.");
+                break;
+            case "next":
+                if (!sender.hasPermission("swiftevents.admin.tasker.next")) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                    return;
+                }
+                if (!tasker.isRunning()) {
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent tasker is not running. Start it first.");
+                } else {
+                    tasker.forceNextEvent();
+                    sender.sendMessage(plugin.getConfigManager().getPrefix() + "§aForcing next automatic event to start...");
+                }
+                break;
+            case "status":
+                if (!sender.hasPermission("swiftevents.admin.tasker.status")) {
+                    sender.sendMessage(plugin.getConfigManager().getMessage("no_permission"));
+                    return;
+                }
+                sender.sendMessage(plugin.getConfigManager().getPrefix() + "§6Event Tasker Status:");
+                sender.sendMessage("  §7Running: " + (tasker.isRunning() ? "§aYes" : "§cNo"));
+                if (tasker.isRunning()) {
+                    long timeUntilNext = tasker.getTimeUntilNextEvent();
+                    sender.sendMessage("  §7Next event in: §f" + formatTime(timeUntilNext / 1000));
+                }
+                sender.sendMessage("  §7Loaded Presets: §f" + tasker.getPresets().size());
                 break;
             default:
                 showTaskerHelp(sender);
@@ -551,23 +609,27 @@ public class SwiftEventCommand implements CommandExecutor {
 
     private void showTaskerHelp(CommandSender sender) {
         sender.sendMessage(plugin.getConfigManager().getPrefix() + "§6Event Tasker Commands:");
-        sender.sendMessage("§7/swiftevent admin tasker list - List scheduled event tasks.");
-        sender.sendMessage("§7/swiftevent admin tasker add <preset> <cron> - Schedule an event from a preset.");
-        sender.sendMessage("§7/swiftevent admin tasker remove <id> - Remove a scheduled task.");
+        sender.sendMessage("§7/swiftevent admin tasker start - Starts the event tasker.");
+        sender.sendMessage("§7/swiftevent admin tasker stop - Stops the event tasker.");
+        sender.sendMessage("§7/swiftevent admin tasker restart - Restarts the event tasker and reloads presets.");
+        sender.sendMessage("§7/swiftevent admin tasker next - Forces the next event to start.");
+        sender.sendMessage("§7/swiftevent admin tasker status - Shows the status of the event tasker.");
     }
 
     private void showAdminHelp(CommandSender sender) {
-        sender.sendMessage(plugin.getConfigManager().getPrefix() + "§cSwiftEvents Admin Help:");
-        sender.sendMessage("§7/swiftevent admin create <name> <type> <desc> - Create a new event.");
-        sender.sendMessage("§7/swiftevent admin delete <name> - Delete an event.");
-        sender.sendMessage("§7/swiftevent admin start <name> - Start an event.");
-        sender.sendMessage("§7/swiftevent admin stop <name> - Stop an event.");
-        sender.sendMessage("§7/swiftevent admin list - List all events.");
-        sender.sendMessage("§7/swiftevent admin gui - Open the admin GUI.");
-        sender.sendMessage("§7/swiftevent admin reload - Reload the config.");
-        sender.sendMessage("§7/swiftevent admin tasker - Manage scheduled tasks.");
-        sender.sendMessage("§7/swiftevent admin config <key> [value] - View or edit config.");
-        sender.sendMessage("§7/swiftevent admin backup - Manage backups.");
+        sender.sendMessage("§e==== SwiftEvents Admin Help ====");
+        sender.sendMessage("§a/swiftevent admin create <name> <type> [max_players] - Create a new event.");
+        sender.sendMessage("§a/swiftevent admin delete <name> - Delete an event.");
+        sender.sendMessage("§a/swiftevent admin start <name> - Start an event.");
+        sender.sendMessage("§a/swiftevent admin stop <name> - Stop an event.");
+        sender.sendMessage("§a/swiftevent admin list - List all events.");
+        sender.sendMessage("§a/swiftevent admin gui - Open the admin GUI.");
+        sender.sendMessage("§a/swiftevent admin reload - Reload the plugin configuration.");
+        sender.sendMessage("§a/swiftevents admin tasker <start|stop|status> - Control the event tasker.");
+        sender.sendMessage("§a/swiftevents admin config <get|set> <key> [value] - Manage plugin config.");
+        sender.sendMessage("§a/swiftevents admin backup <create|list> - Manage backups.");
+        sender.sendMessage("§a/swiftevents admin location <set|remove|list|tp> [name] - Manage preset locations.");
+        sender.sendMessage("§e==================================");
     }
 
     private void handleConfig(CommandSender sender, String[] args) {
@@ -686,5 +748,130 @@ public class SwiftEventCommand implements CommandExecutor {
         } else {
             return secs + "s";
         }
+    }
+
+    private void handleLocationCommand(CommandSender sender, String[] args) {
+        if (args.length == 0) {
+            showLocationHelp(sender);
+            return;
+        }
+
+        String subCommand = args[0].toLowerCase();
+        switch (subCommand) {
+            case "set":
+                handleLocationSet(sender, args);
+                break;
+            case "remove":
+                handleLocationRemove(sender, args);
+                break;
+            case "list":
+                handleLocationList(sender);
+                break;
+            case "tp":
+                handleLocationTeleport(sender, args);
+                break;
+            default:
+                showLocationHelp(sender);
+                break;
+        }
+    }
+
+    private void handleLocationSet(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("This command can only be used by a player.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /swiftevent admin location set <name>");
+            return;
+        }
+        String name = args[1];
+        Location location = player.getLocation();
+        if (plugin.getLocationManager().addPresetLocation(name, location)) {
+            sender.sendMessage("§aPreset location '" + name + "' set to your current position.");
+        } else {
+            sender.sendMessage("§cLocation with name '" + name + "' already exists.");
+        }
+    }
+
+    private void handleLocationRemove(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /swiftevent admin location remove <name>");
+            return;
+        }
+        String name = args[1];
+        if (plugin.getLocationManager().removePresetLocation(name)) {
+            sender.sendMessage("§aPreset location '" + name + "' removed.");
+        } else {
+            sender.sendMessage("§cLocation with name '" + name + "' not found.");
+        }
+    }
+
+    private void handleLocationList(CommandSender sender) {
+        sender.sendMessage("§e==== Preset Locations ====");
+        plugin.getLocationManager().getPresetLocationNames().forEach(name -> sender.sendMessage("§a- " + name));
+        sender.sendMessage("§e==========================");
+    }
+    
+    private void handleLocationTeleport(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("This command can only be used by a player.");
+            return;
+        }
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /swiftevent admin location tp <name>");
+            return;
+        }
+        String name = args[1];
+        plugin.getLocationManager().getPresetLocation(name).ifPresentOrElse(
+            presetLocation -> {
+                player.teleport(presetLocation.location());
+                player.sendMessage("§aTeleported to location '" + name + "'.");
+            },
+            () -> player.sendMessage("§cLocation with name '" + name + "' not found.")
+        );
+    }
+
+    private void showLocationHelp(CommandSender sender) {
+        sender.sendMessage("§e==== Location Admin Help ====");
+        sender.sendMessage("§a/swiftevent admin location set <name> - Sets a preset location to your position.");
+        sender.sendMessage("§a/swiftevent admin location remove <name> - Removes a preset location.");
+        sender.sendMessage("§a/swiftevent admin location list - Lists all preset locations.");
+        sender.sendMessage("§a/swiftevent admin location tp <name> - Teleports to a preset location.");
+        sender.sendMessage("§e=============================");
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            return List.of("join", "leave", "list", "info", "teleport", "gui", "help", "admin").stream()
+                    .filter(s -> s.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length > 1 && args[0].equalsIgnoreCase("admin")) {
+            if (!sender.hasPermission("swiftevents.admin")) {
+                return Collections.emptyList();
+            }
+            if (args.length == 2) {
+                return List.of("create", "delete", "start", "stop", "list", "gui", "reload", "tasker", "config", "backup", "location", "help").stream()
+                        .filter(s -> s.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+
+            String adminSubCommand = args[1].toLowerCase();
+            if (adminSubCommand.equals("location") && args.length == 3) {
+                return List.of("set", "remove", "list", "tp").stream()
+                        .filter(s -> s.startsWith(args[2].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+
+            if (adminSubCommand.equals("location") && (args[2].equalsIgnoreCase("remove") || args[2].equalsIgnoreCase("tp")) && args.length == 4) {
+                return plugin.getLocationManager().getPresetLocationNames().stream()
+                        .filter(name -> name.toLowerCase().startsWith(args[3].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+        }
+        return Collections.emptyList();
     }
 }

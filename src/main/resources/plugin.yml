@@ -2,9 +2,9 @@ name: SwiftEvents
 version: 1.0.0
 main: com.swiftevents.SwiftEventsPlugin
 api-version: 1.21
-author: SwiftEvents Team
+author: phitsee
 description: A comprehensive event system for PaperMC servers
-website: https://github.com/swiftevents/SwiftEvents
+website: https://github.com/phitzy/SwiftEvents
 
 commands:
   swiftevent:

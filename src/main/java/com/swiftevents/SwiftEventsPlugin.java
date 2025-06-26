@@ -12,6 +12,7 @@ import com.swiftevents.gui.AdminGUIManager;
 import com.swiftevents.gui.StatisticsGUIManager;
 import com.swiftevents.hud.HUDManager;
 import com.swiftevents.listeners.PlayerListener;
+import com.swiftevents.locations.LocationManager;
 import com.swiftevents.tasker.EventTasker;
 import com.swiftevents.chat.ChatManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,6 +31,7 @@ public class SwiftEventsPlugin extends JavaPlugin {
     private EventTasker eventTasker;
     private HookManager hookManager;
     private ChatManager chatManager;
+    private LocationManager locationManager;
     
     @Override
     public void onEnable() {
@@ -85,6 +87,9 @@ public class SwiftEventsPlugin extends JavaPlugin {
         configManager = new ConfigManager(this);
         configManager.loadConfig();
         
+        // Initialize location manager
+        locationManager = new LocationManager(this);
+        
         // Load and validate messages
         if (!configManager.loadMessages()) {
             getLogger().warning("Some message keys may be missing. Plugin will continue with defaults.");
@@ -118,7 +123,9 @@ public class SwiftEventsPlugin extends JavaPlugin {
     }
     
     private void registerCommands() {
-        getCommand("swiftevent").setExecutor(new SwiftEventCommand(this));
+        SwiftEventCommand swiftEventCommand = new SwiftEventCommand(this);
+        getCommand("swiftevent").setExecutor(swiftEventCommand);
+        getCommand("swiftevent").setTabCompleter(swiftEventCommand);
     }
     
     private void registerListeners() {
@@ -172,5 +179,9 @@ public class SwiftEventsPlugin extends JavaPlugin {
     
     public ChatManager getChatManager() {
         return chatManager;
+    }
+
+    public LocationManager getLocationManager() {
+        return locationManager;
     }
 } 
