@@ -160,6 +160,11 @@ public class ConfigManager {
         if (duration < 1 || duration > 60) {
             validationErrors.add("hud.notification_duration must be between 1 and 60 seconds");
         }
+
+        int rotationInterval = config.getInt(HUD_PREFIX + "bossbar_rotation_interval", 5);
+        if (rotationInterval < 1 || rotationInterval > 300) {
+            validationErrors.add("hud.bossbar_rotation_interval must be between 1 and 300 seconds");
+        }
     }
     
     private void validatePermissionGroups() {
@@ -243,6 +248,7 @@ public class ConfigManager {
         setDefaultIfMissing("hud.enabled", true);
         setDefaultIfMissing("hud.position", "ACTION_BAR");
         setDefaultIfMissing("hud.notification_duration", 5);
+        setDefaultIfMissing("hud.bossbar_rotation_interval", 5);
         setDefaultIfMissing("hud.animations", true);
         
         // Chat defaults
@@ -439,11 +445,15 @@ public class ConfigManager {
     }
     
     public int getHUDNotificationDuration() {
-        return getCachedInt("hud.notification_duration", 5);
+        return getCachedInt(HUD_PREFIX + "notification_duration", 5);
+    }
+    
+    public int getHUDBossBarRotationInterval() {
+        return getCachedInt(HUD_PREFIX + "bossbar_rotation_interval", 5);
     }
     
     public boolean isHUDAnimationsEnabled() {
-        return hudAnimationsEnabled;
+        return getCachedBoolean(HUD_PREFIX + "animations", true);
     }
     
     public String getHUDColor(String eventType) {
@@ -638,6 +648,54 @@ public class ConfigManager {
         return getCachedString(cacheKey, "Message not found: " + key);
     }
     
+    /**
+     * Gets a message and replaces common placeholders
+     * @param key The message key
+     * @param placeholders Map of placeholder keys to replacement values
+     * @return The message with placeholders replaced
+     */
+    public String getMessage(String key, Map<String, String> placeholders) {
+        String message = getMessage(key);
+        return replacePlaceholders(message, placeholders);
+    }
+    
+    /**
+     * Replaces placeholders in a message string
+     * @param message The message to process
+     * @param placeholders Map of placeholder keys to replacement values
+     * @return The message with placeholders replaced
+     */
+    public String replacePlaceholders(String message, Map<String, String> placeholders) {
+        if (message == null || placeholders == null || placeholders.isEmpty()) {
+            return message;
+        }
+        
+        String result = message;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            String placeholder = "{" + entry.getKey() + "}";
+            String replacement = entry.getValue() != null ? entry.getValue() : "";
+            result = result.replace(placeholder, replacement);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Convenience method to replace a single placeholder
+     * @param message The message to process
+     * @param placeholder The placeholder key (without braces)
+     * @param value The replacement value
+     * @return The message with the placeholder replaced
+     */
+    public String replacePlaceholder(String message, String placeholder, String value) {
+        if (message == null) {
+            return message;
+        }
+        
+        String placeholderWithBraces = "{" + placeholder + "}";
+        return message.replace(placeholderWithBraces, value != null ? value : "");
+    }
+    
     public String getPrefix() {
         return messagePrefix;
     }
@@ -751,5 +809,15 @@ public class ConfigManager {
     
     public void clearCache() {
         configCache.clear();
+    }
+
+    public boolean isFeatureEnabled(String feature) {
+        return switch (feature.toLowerCase()) {
+            case "gui" -> isGUIEnabled();
+            case "hud" -> isHUDEnabled();
+            case "database" -> isDatabaseEnabled();
+            case "tasker" -> isEventTaskerEnabled();
+            default -> false;
+        };
     }
 } 

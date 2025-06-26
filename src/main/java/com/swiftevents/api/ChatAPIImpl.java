@@ -10,12 +10,12 @@ import org.bukkit.entity.Player;
 
 import java.util.UUID;
 
-public class ChatAPIManager implements ChatAPI {
+public class ChatAPIImpl implements ChatAPI {
 
     private final SwiftEventsPlugin plugin;
     private final MiniMessage miniMessage;
 
-    public ChatAPIManager(SwiftEventsPlugin plugin) {
+    public ChatAPIImpl(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
         this.miniMessage = MiniMessage.miniMessage();
     }
@@ -59,10 +59,18 @@ public class ChatAPIManager implements ChatAPI {
         if (replacements.length % 2 != 0) {
             return message;
         }
+
+        StringBuilder sb = new StringBuilder(message);
         for (int i = 0; i < replacements.length; i += 2) {
-            message = message.replace(replacements[i], replacements[i + 1]);
+            String placeholder = replacements[i];
+            String value = replacements[i + 1];
+            int index = sb.indexOf(placeholder);
+            while (index != -1) {
+                sb.replace(index, index + placeholder.length(), value);
+                index = sb.indexOf(placeholder, index + value.length());
+            }
         }
-        return message;
+        return sb.toString();
     }
 
     @Override

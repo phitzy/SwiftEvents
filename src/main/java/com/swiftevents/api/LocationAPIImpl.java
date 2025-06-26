@@ -7,11 +7,11 @@ import org.bukkit.Location;
 import java.util.Optional;
 import java.util.Set;
 
-public class LocationAPIManager implements LocationAPI {
+public class LocationAPIImpl implements LocationAPI {
 
     private final SwiftEventsPlugin plugin;
 
-    public LocationAPIManager(SwiftEventsPlugin plugin) {
+    public LocationAPIImpl(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
     }
 

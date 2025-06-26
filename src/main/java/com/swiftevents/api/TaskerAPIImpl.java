@@ -3,14 +3,13 @@ package com.swiftevents.api;
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.tasker.EventPreset;
 
-import java.util.Collections;
 import java.util.Map;
 
-public class TaskerAPIManager implements TaskerAPI {
+public class TaskerAPIImpl implements TaskerAPI {
 
     private final SwiftEventsPlugin plugin;
 
-    public TaskerAPIManager(SwiftEventsPlugin plugin) {
+    public TaskerAPIImpl(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
     }
 
@@ -31,7 +30,7 @@ public class TaskerAPIManager implements TaskerAPI {
 
     @Override
     public Map<String, EventPreset> getPresets() {
-        return Collections.unmodifiableMap(plugin.getEventTasker().getPresets());
+        return plugin.getEventTasker().getPresets();
     }
 
     @Override
@@ -46,10 +45,11 @@ public class TaskerAPIManager implements TaskerAPI {
 
     @Override
     public boolean setPresetEnabled(String presetId, boolean enabled) {
-        plugin.getEventTasker().setPresetEnabled(presetId, enabled);
-        // The original method is void, but the API defines a boolean return.
-        // We can check if the preset exists to provide a meaningful return.
-        return plugin.getEventTasker().getPreset(presetId) != null;
+        if (plugin.getEventTasker().getPreset(presetId) != null) {
+            plugin.getEventTasker().setPresetEnabled(presetId, enabled);
+            return true;
+        }
+        return false;
     }
 
     @Override

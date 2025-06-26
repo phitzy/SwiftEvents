@@ -2,6 +2,7 @@ package com.swiftevents.commands;
 
 import com.swiftevents.SwiftEventsPlugin;
 import com.swiftevents.events.Event;
+import com.swiftevents.hud.HUDManager;
 import com.swiftevents.permissions.Permissions;
 import com.swiftevents.tasker.EventTasker;
 import org.bukkit.command.Command;
@@ -75,6 +76,14 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 handleTeleport(player, args);
+                break;
+            case "hud":
+                if (!player.hasPermission("swiftevents.hud.toggle")) {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() +
+                            plugin.getConfigManager().getMessage("no_permission"));
+                    return true;
+                }
+                handleHud(player, args);
                 break;
             case "gui":
                 plugin.getGUIManager().openEventsGUI(player);
@@ -963,6 +972,35 @@ public class SwiftEventCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/swiftevent admin location list §7- Lists all preset locations.");
         sender.sendMessage("§e/swiftevent admin location teleport <name> §7- Teleports to a preset location.");
         sender.sendMessage("§7" + "─".repeat(40));
+    }
+
+    private void handleHud(Player player, String[] args) {
+        if (args.length != 2) {
+            player.sendMessage("§cUsage: /swiftevent hud <sidebar|bossbar|none>");
+            return;
+        }
+
+        String arg = args[1].toLowerCase();
+        switch (arg) {
+            case "sidebar":
+                plugin.getHUDManager().toggleSidebar(player);
+                break;
+            case "bossbar":
+                plugin.getHUDManager().toggleBossBar(player);
+                // Additional feedback for bossbar
+                List<Event> activeEvents = plugin.getEventManager().getActiveEvents();
+                if (activeEvents.isEmpty()) {
+                    player.sendMessage("§7Note: Bossbar will show event information when events are active.");
+                }
+                break;
+            case "none":
+                plugin.getHUDManager().setPlayerHUDPreference(player, HUDManager.HUDPreference.NONE);
+                player.sendMessage("§aHUD disabled.");
+                break;
+            default:
+                player.sendMessage("§cInvalid argument. Usage: /swiftevent hud <sidebar|bossbar|none>");
+                break;
+        }
     }
 
     @Override

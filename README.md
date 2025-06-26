@@ -118,14 +118,14 @@ SwiftEvents is the ultimate event management solution for PaperMC servers, offer
 
 | Command | Description | Permission |
 |---------|-------------|------------|
-| `/eventadmin` | Open admin GUI | `swiftevents.admin.gui` |
-| `/eventadmin create <name> <type> <desc>` | Create new event | `swiftevents.admin.create` |
-| `/eventadmin delete <name>` | Delete an event | `swiftevents.admin.delete` |
-| `/eventadmin start <name>` | Start an event | `swiftevents.admin.start` |
-| `/eventadmin stop <name>` | Stop an event | `swiftevents.admin.stop` |
-| `/eventadmin list` | List all events with details | `swiftevents.admin` |
-| `/eventadmin reload` | Reload configuration | `swiftevents.admin.reload` |
-| `/eventadmin tasker <action>` | Manage event tasker | `swiftevents.admin.tasker` |
+| `/swiftevent admin` | Open admin GUI | `swiftevents.admin.gui` |
+| `/swiftevent admin create <name> <type> <desc>` | Create new event | `swiftevents.admin.create` |
+| `/swiftevent admin delete <name>` | Delete an event | `swiftevents.admin.delete` |
+| `/swiftevent admin start <name>` | Start an event | `swiftevents.admin.start` |
+| `/swiftevent admin stop <name>` | Stop an event | `swiftevents.admin.stop` |
+| `/swiftevent admin list` | List all events with details | `swiftevents.admin` |
+| `/swiftevent admin reload` | Reload configuration | `swiftevents.admin.reload` |
+| `/swiftevent admin tasker <action>` | Manage event tasker | `swiftevents.admin.tasker` |
 
 **Tasker Actions**: `start`, `stop`, `status`, `force`, `presets`
 
@@ -271,12 +271,12 @@ hud:
 
 ### 🚨 **High Priority**
 - [ ] **Complete GUI Implementation**
-  - [ ] Player event browser GUI with filtering and sorting
-  - [ ] Admin management panel with comprehensive controls
-  - [ ] Event creation wizard with step-by-step setup
-  - [ ] Real-time participant list with status indicators
-  - [ ] Event statistics and analytics dashboard
-  - [ ] Settings configuration GUI for admins
+  - [x] Player event browser GUI with filtering and sorting
+  - [x] Admin management panel with comprehensive controls
+  - [x] Event creation wizard with step-by-step setup
+  - [x] Real-time participant list with status indicators
+  - [-] Event statistics and analytics dashboard
+  - [x] Settings configuration GUI for admins
 
 ### 🎯 **Core Features**
 - [ ] **Enhanced Event Types**

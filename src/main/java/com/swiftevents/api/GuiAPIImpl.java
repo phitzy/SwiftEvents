@@ -5,11 +5,11 @@ import com.swiftevents.gui.EventFilter;
 import com.swiftevents.gui.EventSort;
 import org.bukkit.entity.Player;
 
-public class GuiAPIManager implements GuiAPI {
+public class GuiAPIImpl implements GuiAPI {
 
     private final SwiftEventsPlugin plugin;
 
-    public GuiAPIManager(SwiftEventsPlugin plugin) {
+    public GuiAPIImpl(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
     }
 

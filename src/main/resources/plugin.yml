@@ -32,6 +32,7 @@ permissions:
       swiftevents.user.leave: true
       swiftevents.user.tp: true
       swiftevents.user.stats: true
+      swiftevents.hud.toggle: true
       swiftevents.event.pvp: true
       swiftevents.event.treasure: true
       swiftevents.event.building: true
@@ -56,6 +57,7 @@ permissions:
       swiftevents.admin.participants: true
       swiftevents.admin.tasker.*: true
       swiftevents.bypass.*: true
+      swiftevents.hud.toggle: true
 
   # General Permissions
   swiftevents.reload:
@@ -64,6 +66,18 @@ permissions:
   swiftevents.updatecheck:
     description: Allows checking for plugin updates.
     default: op
+  swiftevents.hud:
+    description: Receive HUD notifications
+    default: true
+  swiftevents.hud.toggle:
+    description: Allows toggling the HUD display
+    default: true
+  swiftevents.chat:
+    description: Receive chat notifications
+    default: true
+  swiftevents.sounds:
+    description: Hear event sound effects
+    default: true
 
   # User Permissions
   swiftevents.user.base:
@@ -178,12 +192,3 @@ permissions:
   swiftevents.notify:
     description: Receive event notifications
     default: true
-  swiftevents.hud:
-    description: Receive HUD notifications
-    default: true
-  swiftevents.chat:
-    description: Receive chat notifications
-    default: true
-  swiftevents.sounds:
-    description: Hear event sound effects
-    default: true 

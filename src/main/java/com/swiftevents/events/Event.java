@@ -2,6 +2,7 @@ package com.swiftevents.events;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 public class Event {
     
@@ -395,77 +396,70 @@ public class Event {
     }
     
     public boolean hasEnded() {
+        if (status == EventStatus.COMPLETED || status == EventStatus.CANCELLED) return true;
         return endTime > 0 && System.currentTimeMillis() >= endTime;
     }
     
     public long getDuration() {
-        if (startTime <= 0 || endTime <= 0) {
+        if (startTime == 0 || endTime == 0 || endTime < startTime) {
             return 0;
         }
-        return Math.max(0, endTime - startTime);
+        return endTime - startTime;
     }
     
     public long getRemainingTime() {
-        if (endTime <= 0) {
-            return Long.MAX_VALUE; // Unlimited time
+        // Return 0 for completed or cancelled events
+        if (status == EventStatus.COMPLETED || status == EventStatus.CANCELLED) {
+            return 0;
         }
-        return Math.max(0, endTime - System.currentTimeMillis());
+        
+        // Return 0 if no end time is set
+        if (endTime == 0) {
+            return 0;
+        }
+        
+        // For ACTIVE, SCHEDULED, PAUSED, and CREATED events, calculate remaining time
+        long remaining = endTime - System.currentTimeMillis();
+        return Math.max(0, remaining);
     }
     
-    // Optimized time formatting with caching and string builder
     public String getFormattedRemainingTime() {
-        long currentTime = System.currentTimeMillis();
-        
-        // Check if cached value is still valid
-        if (cachedFormattedTime != null && (currentTime - lastTimeCalculation) < TIME_CACHE_DURATION) {
+        long now = System.currentTimeMillis();
+        if (cachedFormattedTime != null && (now - lastTimeCalculation) < TIME_CACHE_DURATION) {
             return cachedFormattedTime;
         }
         
-        long remaining = getRemainingTime();
-        cachedFormattedTime = formatTimeString(remaining);
-        lastTimeCalculation = currentTime;
-        
+        lastTimeCalculation = now;
+        cachedFormattedTime = formatTimeString(getRemainingTime());
         return cachedFormattedTime;
     }
+
+    public String getFormattedDuration() {
+        return formatTimeString(getDuration());
+    }
     
-    // Optimized time formatting using ThreadLocal StringBuilder
     private String formatTimeString(long milliseconds) {
-        if (milliseconds == Long.MAX_VALUE) {
-            return "Unlimited";
-        }
-        
         if (milliseconds <= 0) {
             return "Ended";
         }
         
+        long days = TimeUnit.MILLISECONDS.toDays(milliseconds);
+        milliseconds -= TimeUnit.DAYS.toMillis(days);
+        long hours = TimeUnit.MILLISECONDS.toHours(milliseconds);
+        milliseconds -= TimeUnit.HOURS.toMillis(hours);
+        long minutes = TimeUnit.MILLISECONDS.toMinutes(milliseconds);
+        milliseconds -= TimeUnit.MINUTES.toMillis(minutes);
+        long seconds = TimeUnit.MILLISECONDS.toSeconds(milliseconds);
+        
         StringBuilder sb = STRING_BUILDER.get();
-        sb.setLength(0); // Clear the builder
+        sb.setLength(0);
         
-        long seconds = milliseconds / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-        long days = hours / 24;
+        if (days > 0) sb.append(days).append("d ");
+        if (hours > 0) sb.append(hours).append("h ");
+        if (minutes > 0) sb.append(minutes).append("m ");
+        if (seconds > 0 || (days == 0 && hours == 0 && minutes == 0)) sb.append(seconds).append("s");
         
-        if (days > 0) {
-            sb.append(days).append("d ");
-            hours %= 24;
-        }
-        if (hours > 0) {
-            sb.append(hours).append("h ");
-            minutes %= 60;
-        }
-        if (minutes > 0) {
-            sb.append(minutes).append("m ");
-        }
-        if (days == 0 && hours == 0) { // Only show seconds for shorter durations
-            seconds %= 60;
-            if (minutes == 0 || seconds > 0) {
-                sb.append(seconds).append("s");
-            }
-        }
-        
-        String result = sb.toString().trim();
-        return result.isEmpty() ? "0s" : result;
+        return sb.toString().trim();
     }
     
     private void clearTimeCache() {

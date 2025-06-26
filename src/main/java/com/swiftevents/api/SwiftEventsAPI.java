@@ -20,7 +20,6 @@ import java.util.UUID;
 public final class SwiftEventsAPI {
     
     private static SwiftEventsPlugin plugin;
-    private static EventAPI api;
     
     private SwiftEventsAPI() {
         // Utility class, no instantiation
@@ -32,7 +31,6 @@ public final class SwiftEventsAPI {
      */
     public static void initialize(SwiftEventsPlugin pluginInstance) {
         plugin = pluginInstance;
-        api = pluginInstance.getEventAPI();
     }
     
     /**
@@ -40,7 +38,7 @@ public final class SwiftEventsAPI {
      * @return True if SwiftEvents is available
      */
     public static boolean isAvailable() {
-        return plugin != null && plugin.isEnabled() && api != null;
+        return plugin != null && plugin.isEnabled();
     }
     
     /**
@@ -52,19 +50,11 @@ public final class SwiftEventsAPI {
     }
     
     /**
-     * Get the EventAPI instance
-     * @return The API instance or null if not available
-     */
-    public static EventAPI getAPI() {
-        return api;
-    }
-    
-    /**
      * Get the GuiAPI instance
      * @return The GuiAPI instance or null if not available
      */
     public static GuiAPI getGuiAPI() {
-        return isAvailable() ? api.getGuiAPI() : null;
+        return isAvailable() ? plugin.getGuiAPI() : null;
     }
     
     /**
@@ -72,7 +62,7 @@ public final class SwiftEventsAPI {
      * @return The HudAPI instance or null if not available
      */
     public static HudAPI getHudAPI() {
-        return isAvailable() ? api.getHudAPI() : null;
+        return isAvailable() ? plugin.getHudAPI() : null;
     }
     
     /**
@@ -80,7 +70,7 @@ public final class SwiftEventsAPI {
      * @return The ChatAPI instance or null if not available
      */
     public static ChatAPI getChatAPI() {
-        return isAvailable() ? api.getChatAPI() : null;
+        return isAvailable() ? plugin.getChatAPI() : null;
     }
     
     /**
@@ -88,7 +78,7 @@ public final class SwiftEventsAPI {
      * @return The TaskerAPI instance or null if not available
      */
     public static TaskerAPI getTaskerAPI() {
-        return isAvailable() ? api.getTaskerAPI() : null;
+        return isAvailable() ? plugin.getTaskerAPI() : null;
     }
     
     /**
@@ -96,7 +86,7 @@ public final class SwiftEventsAPI {
      * @return The LocationAPI instance or null if not available
      */
     public static LocationAPI getLocationAPI() {
-        return isAvailable() ? api.getLocationAPI() : null;
+        return isAvailable() ? plugin.getLocationAPI() : null;
     }
     
     // ===== CONVENIENCE METHODS =====
@@ -107,7 +97,7 @@ public final class SwiftEventsAPI {
      * @return True if player is in an active event
      */
     public static boolean isPlayerInEvent(Player player) {
-        return isAvailable() && api.isPlayerInEvent(player.getUniqueId());
+        return isAvailable() && plugin.getEventManager().isPlayerInEvent(player.getUniqueId());
     }
     
     /**
@@ -116,7 +106,7 @@ public final class SwiftEventsAPI {
      * @return List of events the player is in
      */
     public static List<Event> getPlayerEvents(Player player) {
-        return isAvailable() ? api.getPlayerEvents(player.getUniqueId()) : List.of();
+        return isAvailable() ? plugin.getEventManager().getPlayerEvents(player.getUniqueId()) : List.of();
     }
     
     /**
@@ -124,7 +114,7 @@ public final class SwiftEventsAPI {
      * @return List of active events
      */
     public static List<Event> getActiveEvents() {
-        return isAvailable() ? api.getActiveEvents() : List.of();
+        return isAvailable() ? plugin.getEventManager().getActiveEvents() : List.of();
     }
     
     /**
@@ -132,7 +122,10 @@ public final class SwiftEventsAPI {
      * @return List of joinable events
      */
     public static List<Event> getJoinableEvents() {
-        return isAvailable() ? api.getJoinableEvents() : List.of();
+        if (!isAvailable()) return List.of();
+        return plugin.getEventManager().getAllEvents().stream()
+                .filter(Event::canJoin)
+                .toList();
     }
     
     /**
@@ -146,7 +139,7 @@ public final class SwiftEventsAPI {
     public static Event createEvent(String name, String description, Event.EventType type, Player creator) {
         if (!isAvailable()) return null;
         UUID creatorId = creator != null ? creator.getUniqueId() : null;
-        return api.createEvent(name, description, type, creatorId);
+        return plugin.getEventManager().createEvent(name, description, type, creatorId);
     }
     
     /**
@@ -156,7 +149,7 @@ public final class SwiftEventsAPI {
      * @return True if successful
      */
     public static boolean joinEvent(Player player, Event event) {
-        return isAvailable() && api.joinEvent(event.getId(), player.getUniqueId());
+        return isAvailable() && plugin.getEventManager().joinEvent(event.getId(), player.getUniqueId());
     }
     
     /**
@@ -166,7 +159,17 @@ public final class SwiftEventsAPI {
      * @return True if successful
      */
     public static boolean leaveEvent(Player player, Event event) {
-        return isAvailable() && api.leaveEvent(event.getId(), player.getUniqueId());
+        return isAvailable() && plugin.getEventManager().leaveEvent(event.getId(), player.getUniqueId());
+    }
+    
+    /**
+     * Teleport a player to an event
+     * @param player The player to teleport
+     * @param event The event to teleport to
+     * @return True if successful
+     */
+    public static boolean teleportToEvent(Player player, Event event) {
+        return isAvailable() && plugin.getEventManager().teleportToEvent(player, event.getId());
     }
     
     /**
@@ -175,7 +178,7 @@ public final class SwiftEventsAPI {
      * @return True if successful
      */
     public static boolean startEvent(Event event) {
-        return isAvailable() && api.startEvent(event.getId());
+        return isAvailable() && plugin.getEventManager().startEvent(event.getId());
     }
     
     /**
@@ -184,7 +187,7 @@ public final class SwiftEventsAPI {
      * @return True if successful
      */
     public static boolean endEvent(Event event) {
-        return isAvailable() && api.endEvent(event.getId());
+        return isAvailable() && plugin.getEventManager().endEvent(event.getId());
     }
     
     /**
@@ -193,7 +196,7 @@ public final class SwiftEventsAPI {
      * @return True if successful
      */
     public static boolean cancelEvent(Event event) {
-        return isAvailable() && api.cancelEvent(event.getId());
+        return isAvailable() && plugin.getEventManager().cancelEvent(event.getId());
     }
     
     /**
@@ -202,7 +205,7 @@ public final class SwiftEventsAPI {
      * @return True if registered successfully
      */
     public static boolean registerHook(SwiftEventsHook hook) {
-        return isAvailable() && api.registerHook(hook);
+        return isAvailable() && plugin.getHookManager().registerHook(hook);
     }
     
     /**
@@ -211,7 +214,7 @@ public final class SwiftEventsAPI {
      * @return True if unregistered successfully
      */
     public static boolean unregisterHook(String hookName) {
-        return isAvailable() && api.unregisterHook(hookName);
+        return isAvailable() && plugin.getHookManager().unregisterHook(hookName);
     }
     
     /**
@@ -221,7 +224,16 @@ public final class SwiftEventsAPI {
      * @return Number of players the message was sent to
      */
     public static int broadcastToEvent(Event event, String message) {
-        return isAvailable() ? api.broadcastToEventParticipants(event.getId(), message) : 0;
+        if (!isAvailable()) return 0;
+        int count = 0;
+        for (UUID participantId : event.getParticipants()) {
+            Player player = Bukkit.getPlayer(participantId);
+            if (player != null && player.isOnline()) {
+                getChatAPI().sendMessage(player, message);
+                count++;
+            }
+        }
+        return count;
     }
     
     /**
@@ -237,7 +249,14 @@ public final class SwiftEventsAPI {
                                           Player creator, long durationSeconds) {
         if (!isAvailable()) return null;
         UUID creatorId = creator != null ? creator.getUniqueId() : null;
-        return api.createAndStartEvent(name, description, type, creatorId, durationSeconds);
+        Event event = plugin.getEventManager().createEvent(name, description, type, creatorId);
+        if (event != null) {
+            if (durationSeconds > 0) {
+                event.setEndTime(System.currentTimeMillis() + (durationSeconds * 1000));
+            }
+            plugin.getEventManager().startEvent(event.getId());
+        }
+        return event;
     }
     
     /**
@@ -246,7 +265,7 @@ public final class SwiftEventsAPI {
      * @return List of events of that type
      */
     public static List<Event> getEventsByType(Event.EventType type) {
-        return isAvailable() ? api.getEventsByType(type) : List.of();
+        return isAvailable() ? plugin.getEventManager().getEventsByType(type) : List.of();
     }
     
     /**
@@ -256,7 +275,7 @@ public final class SwiftEventsAPI {
      * @return True if they conflict
      */
     public static boolean eventsConflict(Event event1, Event event2) {
-        return isAvailable() && api.eventsConflict(event1, event2);
+        return isAvailable() && plugin.getEventManager().eventsConflict(event1, event2);
     }
     
     // ===== UTILITY METHODS =====
@@ -270,9 +289,9 @@ public final class SwiftEventsAPI {
             return true;
         }
         
-        Plugin swiftEventsPlugin = Bukkit.getPluginManager().getPlugin("SwiftEvents");
-        if (swiftEventsPlugin instanceof SwiftEventsPlugin swiftEvents && swiftEvents.isEnabled()) {
-            initialize(swiftEvents);
+        Plugin tempPlugin = Bukkit.getPluginManager().getPlugin("SwiftEvents");
+        if (tempPlugin instanceof SwiftEventsPlugin && tempPlugin.isEnabled()) {
+            initialize((SwiftEventsPlugin) tempPlugin);
             return true;
         }
         
@@ -281,26 +300,18 @@ public final class SwiftEventsAPI {
     
     /**
      * Get version information about SwiftEvents
-     * @return Version string or "Unknown" if not available
+     * @return Version string or "N/A" if not available
      */
     public static String getVersion() {
-        return isAvailable() ? plugin.getDescription().getVersion() : "Unknown";
+        return isAvailable() ? plugin.getDescription().getVersion() : "N/A";
     }
     
     /**
-     * Check if a specific feature is enabled
+     * Check if a specific feature is enabled in the config
      * @param feature The feature name ("gui", "hud", "database", "tasker")
      * @return True if the feature is enabled
      */
     public static boolean isFeatureEnabled(String feature) {
-        if (!isAvailable()) return false;
-        
-        return switch (feature.toLowerCase()) {
-            case "gui" -> api.isGUIEnabled();
-            case "hud" -> api.isHUDEnabled();
-            case "database" -> api.isDatabaseEnabled();
-            case "tasker" -> plugin.getConfigManager().isEventTaskerEnabled();
-            default -> false;
-        };
+        return isAvailable() && plugin.getConfigManager().isFeatureEnabled(feature);
     }
 } 

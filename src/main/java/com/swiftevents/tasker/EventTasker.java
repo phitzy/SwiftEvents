@@ -224,8 +224,9 @@ public class EventTasker {
     }
     
     private void announceUpcomingEvent(long minutesUntil) {
-        String announcement = "§6[SwiftEvents] §eAn automatic event will start in " + minutesUntil + " minute" + 
-                (minutesUntil == 1 ? "" : "s") + "! §a/eventgui §eto join when it begins!";
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("time", String.valueOf(minutesUntil));
+        String announcement = plugin.getConfigManager().getMessage("announcement_reminder", placeholders);
         
         // Only announce once per time slot
         String timeKey = String.valueOf(minutesUntil);
@@ -239,7 +240,7 @@ public class EventTasker {
             upcomingAnnouncements.clear();
         }
         
-        Bukkit.broadcastMessage(announcement);
+        Bukkit.broadcastMessage(plugin.getConfigManager().getPrefix() + announcement);
     }
     
     private void announceNewEvent(Event event) {
@@ -248,15 +249,16 @@ public class EventTasker {
             plugin.getChatManager().announceEvent(event, ChatManager.EventAnnouncement.CREATED);
         } else {
             // Fallback to basic announcement if chat is disabled
-            String announcement = "§6[SwiftEvents] §aA new automatic event has started: §e" + event.getName() + 
-                    "§a! §bUse §a/event join " + event.getName().replace(" ", "_") + " §bto participate!";
-            Bukkit.broadcastMessage(announcement);
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("event_name", event.getName());
+            String announcement = plugin.getConfigManager().getMessage("automatic_event_starting", placeholders);
+            Bukkit.broadcastMessage(plugin.getConfigManager().getPrefix() + announcement);
         }
         
         // Send HUD notification to all players
         if (plugin.getConfigManager().isHUDEnabled()) {
             for (Player player : Bukkit.getOnlinePlayers()) {
-                plugin.getHUDManager().sendHUDMessage(player, "§6New Event: §e" + event.getName());
+                plugin.getHUDManager().sendActionBarMessage(player, "§6New Event: §e" + event.getName());
             }
         }
     }

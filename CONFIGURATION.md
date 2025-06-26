@@ -268,35 +268,35 @@ Use these commands to modify configuration without restarting:
 
 ```bash
 # View configuration values
-/eventadmin config get events.max_concurrent
-/eventadmin config list
+/swiftevent admin config get events.max_concurrent
+/swiftevent admin config list
 
 # Modify configuration
-/eventadmin config set events.max_concurrent 10
-/eventadmin config set hud.enabled false
+/swiftevent admin config set events.max_concurrent 10
+/swiftevent admin config set hud.enabled false
 
 # Validate configuration
-/eventadmin config validate
+/swiftevent admin config validate
 
 # Reload configuration
-/eventadmin reload
+/swiftevent admin reload
 ```
 
 ### Configuration Management
 
 ```bash
 # Create backup
-/eventadmin backup create
+/swiftevent admin backup create
 
 # View backup information
-/eventadmin backup info
+/swiftevent admin backup info
 
 # Event tasker management
-/eventadmin tasker start
-/eventadmin tasker stop
-/eventadmin tasker status
-/eventadmin tasker force        # Force next event
-/eventadmin tasker presets      # List presets
+/swiftevent admin tasker start
+/swiftevent admin tasker stop
+/swiftevent admin tasker status
+/swiftevent admin tasker force        # Force next event
+/swiftevent admin tasker presets      # List presets
 ```
 
 ## Performance Tuning
@@ -373,7 +373,7 @@ When PlaceholderAPI is enabled:
 
 **Configuration validation errors:**
 1. Check the server console for specific error messages
-2. Use `/eventadmin config validate` to check current settings
+2. Use `/swiftevent admin config validate` to check current settings
 3. Ensure all required values are within valid ranges
 
 **Database connection issues:**

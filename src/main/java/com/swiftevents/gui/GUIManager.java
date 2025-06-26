@@ -323,60 +323,6 @@ public class GUIManager {
         gui.setItem(47, statsButton);
     }
     
-    public void openAdminGUI(Player player) {
-        if (!player.hasPermission(Permissions.ADMIN_BASE)) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou don't have permission to access the admin GUI.");
-            return;
-        }
-        
-        Inventory gui = Bukkit.createInventory(null, 45, "§4Admin - Event Management");
-        
-        // Use cached admin items
-        ItemStack createEvent = getCachedItem("admin_create", () -> {
-            ItemStack item = new ItemStack(Material.EMERALD);
-            ItemMeta meta = item.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName("§aCreate New Event");
-                loreBuffer.clear();
-                loreBuffer.add("§7Click to create a new event");
-                meta.setLore(new ArrayList<>(loreBuffer));
-                item.setItemMeta(meta);
-            }
-            return item;
-        });
-        gui.setItem(10, createEvent);
-        
-        ItemStack activeEvents = getCachedItem("admin_active", () -> {
-            ItemStack item = new ItemStack(Material.CLOCK);
-            ItemMeta meta = item.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName("§6Active Events");
-                loreBuffer.clear();
-                loreBuffer.add("§7View and manage active events");
-                meta.setLore(new ArrayList<>(loreBuffer));
-                item.setItemMeta(meta);
-            }
-            return item;
-        });
-        gui.setItem(12, activeEvents);
-        
-        ItemStack close = getCachedItem("close_button", () -> {
-            ItemStack item = new ItemStack(Material.BARRIER);
-            ItemMeta meta = item.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName("§cClose");
-                loreBuffer.clear();
-                loreBuffer.add("§7Close this GUI");
-                meta.setLore(new ArrayList<>(loreBuffer));
-                item.setItemMeta(meta);
-            }
-            return item;
-        });
-        gui.setItem(40, close);
-        
-        player.openInventory(gui);
-    }
-    
     public void openEventDetailsGUI(Player player, Event event) {
         if (event == null) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent not found!");
@@ -571,6 +517,22 @@ public class GUIManager {
             gui.setItem(50, nextPage);
         }
         
+        // Add HUD settings button
+        ItemStack hudSettingsButton = getCachedItem("hud_settings_button", () -> {
+            ItemStack item = new ItemStack(Material.COMPASS);
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§bHUD Settings");
+                loreBuffer.clear();
+                loreBuffer.add("§7Click to customize your");
+                loreBuffer.add("§7event notifications display.");
+                meta.setLore(new ArrayList<>(loreBuffer));
+                item.setItemMeta(meta);
+            }
+            return item;
+        });
+        gui.setItem(48, hudSettingsButton);
+        
         // Admin Panel button
         if (player.hasPermission(Permissions.ADMIN_BASE)) {
             ItemStack adminButton = getCachedItem("admin_panel_button", () -> {
@@ -733,5 +695,34 @@ public class GUIManager {
         itemCacheTimestamps.clear();
         
         plugin.getLogger().info("GUIManager shutdown complete");
+    }
+    
+    public void openHudSettingsGUI(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, "§8HUD Settings");
+
+        // Toggle Sidebar
+        ItemStack sidebarItem = new ItemStack(Material.BOOK);
+        ItemMeta sidebarMeta = sidebarItem.getItemMeta();
+        sidebarMeta.setDisplayName("§aToggle Sidebar");
+        sidebarMeta.setLore(Arrays.asList("§7Click to toggle the event sidebar."));
+        sidebarItem.setItemMeta(sidebarMeta);
+        gui.setItem(11, sidebarItem);
+
+        // Toggle Boss Bar
+        ItemStack bossBarItem = new ItemStack(Material.DRAGON_HEAD);
+        ItemMeta bossBarMeta = bossBarItem.getItemMeta();
+        bossBarMeta.setDisplayName("§cToggle Boss Bar");
+        bossBarMeta.setLore(Arrays.asList("§7Click to toggle the event boss bar."));
+        bossBarItem.setItemMeta(bossBarMeta);
+        gui.setItem(15, bossBarItem);
+
+        // Back button
+        ItemStack backButton = new ItemStack(Material.ARROW);
+        ItemMeta backMeta = backButton.getItemMeta();
+        backMeta.setDisplayName("§7Back");
+        backButton.setItemMeta(backMeta);
+        gui.setItem(26, backButton);
+
+        player.openInventory(gui);
     }
 } 

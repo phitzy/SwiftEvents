@@ -51,6 +51,9 @@ public class PlayerListener implements Listener {
                     "§aYou have active events! Use /event list to see them.");
         }
         
+        // Update player's HUD if they have it enabled
+        plugin.getHUDManager().forceUpdatePlayerHUD(player);
+        
         // Send notifications for scheduled events
         plugin.getEventManager().getEventsByStatus(Event.EventStatus.SCHEDULED)
                 .stream()
@@ -59,9 +62,8 @@ public class PlayerListener implements Listener {
                 .forEach(gameEvent -> {
                     long timeUntilStart = (gameEvent.getStartTime() - System.currentTimeMillis()) / 1000;
                     if (timeUntilStart > 0) {
-                        plugin.getHUDManager().sendEventNotification(player, 
-                                gameEvent.getName(), "update", 
-                                "Starting in " + formatTime(timeUntilStart));
+                        plugin.getHUDManager().sendActionBarMessage(player, 
+                                "§a" + gameEvent.getName() + " starting in " + formatTime(timeUntilStart));
                     }
                 });
     }
@@ -129,9 +131,13 @@ public class PlayerListener implements Listener {
         } else if (title.equals("§4Admin Dashboard - SwiftEvents")) {
             handleAdminGUI(player, itemName);
         } else if (title.startsWith("§6Event Creation")) {
-            handleEventCreationGUI(player, title, itemName, clickedItem);
+            handleEventCreationGUI(player, title, itemName, clickedItem, event.isRightClick(), event.isShiftClick());
+        } else if (title.equals("§6Select Preset Location")) {
+            handlePresetLocationSelectionGUI(player, title, itemName, event.isShiftClick());
         } else if (title.equals("§b§lEvent Statistics Dashboard")) {
             handleStatisticsGUI(player, itemName);
+        } else if (title.equals("§8HUD Settings")) {
+            handleHudSettingsGUI(player, itemName);
         }
     }
     
@@ -141,7 +147,9 @@ public class PlayerListener implements Listener {
                title.equals("§4Admin - Event Management") ||
                title.equals("§4Admin Dashboard - SwiftEvents") ||
                title.startsWith("§6Event Creation") ||
-               title.equals("§b§lEvent Statistics Dashboard");
+               title.equals("§6Select Preset Location") ||
+               title.equals("§b§lEvent Statistics Dashboard") ||
+               title.equals("§8HUD Settings");
     }
     
     private void handleMainEventsGUI(Player player, String itemName, ItemStack clickedItem, int slot) {
@@ -179,6 +187,10 @@ public class PlayerListener implements Listener {
                 if (player.hasPermission(Permissions.ADMIN_BASE)) {
                     plugin.getAdminGUIManager().openAdminGUI(player);
                 }
+                break;
+                
+            case "§bHUD Settings":
+                plugin.getGUIManager().openHudSettingsGUI(player);
                 break;
                 
             default:
@@ -572,13 +584,13 @@ public class PlayerListener implements Listener {
             case "§aCreate New Event":
                 player.closeInventory();
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§7Use §f/eventadmin create <n> <type> <description> §7to create an event");
+                        "§7Use §f/swiftevent admin create <n> <type> <description> §7to create an event");
                 player.sendMessage("§7Available types: §fPVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM");
                 break;
                 
             case "§6Active Events":
                 player.closeInventory();
-                player.performCommand("eventadmin list");
+                player.performCommand("swiftevent admin list");
                 break;
                 
             // Enhanced admin GUI items
@@ -595,7 +607,7 @@ public class PlayerListener implements Listener {
             case "§c§lActive Events":
                 // Show detailed active events list
                 player.closeInventory();
-                player.performCommand("eventadmin list");
+                player.performCommand("swiftevent admin list");
                 break;
                 
             case "§b§lEvent Statistics":
@@ -625,7 +637,7 @@ public class PlayerListener implements Listener {
             case "§9§lPlugin Settings":
                 // Open settings management
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§9Use §f/eventadmin config §9to manage plugin settings");
+                        "§9Use §f/swiftevent admin config §9to manage plugin settings");
                 break;
                 
             case "§5§lPermission Manager":
@@ -639,7 +651,7 @@ public class PlayerListener implements Listener {
                 // Backup management
                 player.closeInventory();
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§3Use §f/eventadmin backup §3to manage backups");
+                        "§3Use §f/swiftevent admin backup §3to manage backups");
                 break;
                 
             case "§2§lEvent Tasker §a[ON]":
@@ -647,13 +659,13 @@ public class PlayerListener implements Listener {
                 // Tasker management
                 player.closeInventory();
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§2Use §f/eventadmin tasker §2to manage the event tasker");
+                        "§2Use §f/swiftevent admin tasker §2to manage the event tasker");
                 break;
                 
             case "§a§lEvent Presets":
                 // Preset management
                 player.closeInventory();
-                player.performCommand("eventadmin tasker presets");
+                player.performCommand("swiftevent admin tasker presets");
                 break;
                 
             case "§f§lOnline Players":
@@ -682,7 +694,7 @@ public class PlayerListener implements Listener {
             case "§e§lHelp & Documentation":
                 // Show help information
                 player.closeInventory();
-                player.performCommand("eventadmin help");
+                player.performCommand("swiftevent admin help");
                 break;
                 
             case "§cClose":
@@ -849,7 +861,7 @@ public class PlayerListener implements Listener {
         }.runTask(plugin);
     }
     
-    private void handleEventCreationGUI(Player player, String title, String itemName, ItemStack clickedItem) {
+    private void handleEventCreationGUI(Player player, String title, String itemName, ItemStack clickedItem, boolean isRightClick, boolean isShiftClick) {
         GUISession session = plugin.getGUIManager().getOrCreateSession(player.getUniqueId());
         
         // Handle common navigation buttons first
@@ -883,7 +895,7 @@ public class PlayerListener implements Listener {
         } else if (title.equals("§6Event Creation - Basic Info")) {
             handleBasicInfoInput(player, session, itemName);
         } else if (title.equals("§6Event Creation - Settings")) {
-            handleSettingsInput(player, session, itemName, clickedItem);
+            handleSettingsInput(player, session, itemName, clickedItem, isRightClick, isShiftClick);
         } else if (title.equals("§6Event Creation - Location")) {
             handleLocationInput(player, session, itemName);
         } else if (title.equals("§6Event Creation - Rewards")) {
@@ -927,9 +939,8 @@ public class PlayerListener implements Listener {
         }
     }
     
-    private void handleSettingsInput(Player player, GUISession session, String itemName, ItemStack clickedItem) {
-        boolean isShiftClick = player.isSneaking();
-        boolean isRightClick = false; // Would need to track this from InventoryClickEvent
+    private void handleSettingsInput(Player player, GUISession session, String itemName, ItemStack clickedItem, boolean isRightClick, boolean isShiftClick) {
+        // No longer need to check player.isSneaking() since we get it from the event
         
         switch (itemName) {
             case "§eMax Participants":
@@ -982,16 +993,22 @@ public class PlayerListener implements Listener {
     
     private void handleLocationInput(Player player, GUISession session, String itemName) {
         switch (itemName) {
-            case "§aSet to My Location":
+            case "§bSet Custom Location":
                 Location loc = player.getLocation();
                 session.setCreationData("locationWorld", loc.getWorld().getName());
                 session.setCreationData("locationX", loc.getX());
                 session.setCreationData("locationY", loc.getY());
                 session.setCreationData("locationZ", loc.getZ());
+                // Clear preset location data when setting custom
+                session.setCreationData("presetLocationName", null);
                 
                 player.sendMessage(plugin.getConfigManager().getPrefix() + 
                     "§aEvent location set to your current position!");
                 plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+                break;
+                
+            case "§aChoose Preset Location":
+                plugin.getAdminGUIManager().openPresetLocationSelectionGUI(player, session);
                 break;
                 
             case "§cClear Location":
@@ -999,10 +1016,72 @@ public class PlayerListener implements Listener {
                 session.setCreationData("locationX", null);
                 session.setCreationData("locationY", null);
                 session.setCreationData("locationZ", null);
+                session.setCreationData("presetLocationName", null);
                 
                 player.sendMessage(plugin.getConfigManager().getPrefix() + "§cEvent location cleared!");
                 plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
                 break;
+                
+            case "§dTeleport to Location":
+                handleLocationTeleport(player, session);
+                break;
+                
+            // Legacy support for old button name
+            case "§aSet to My Location":
+                Location legacyLoc = player.getLocation();
+                session.setCreationData("locationWorld", legacyLoc.getWorld().getName());
+                session.setCreationData("locationX", legacyLoc.getX());
+                session.setCreationData("locationY", legacyLoc.getY());
+                session.setCreationData("locationZ", legacyLoc.getZ());
+                session.setCreationData("presetLocationName", null);
+                
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§aEvent location set to your current position!");
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+                break;
+        }
+    }
+    
+    private void handleLocationTeleport(Player player, GUISession session) {
+        String presetLocationName = (String) session.getCreationData("presetLocationName");
+        
+        if (presetLocationName != null) {
+            // Teleport to preset location
+            plugin.getLocationManager().getPresetLocation(presetLocationName).ifPresentOrElse(
+                presetLocation -> {
+                    player.teleport(presetLocation.location());
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§aTeleported to preset location: " + presetLocationName);
+                },
+                () -> {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§cPreset location '" + presetLocationName + "' no longer exists!");
+                    // Clear invalid preset
+                    session.setCreationData("presetLocationName", null);
+                    plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+                }
+            );
+        } else {
+            // Teleport to custom location
+            String locationWorld = (String) session.getCreationData("locationWorld");
+            if (locationWorld != null) {
+                Double x = (Double) session.getCreationData("locationX");
+                Double y = (Double) session.getCreationData("locationY");
+                Double z = (Double) session.getCreationData("locationZ");
+                
+                Location customLocation = new Location(
+                    Bukkit.getWorld(locationWorld), x, y, z
+                );
+                
+                if (customLocation.getWorld() != null) {
+                    player.teleport(customLocation);
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§aTeleported to event location!");
+                } else {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§cWorld '" + locationWorld + "' no longer exists!");
+                }
+            }
         }
     }
     
@@ -1096,8 +1175,22 @@ public class PlayerListener implements Listener {
         }
         // Note: Duration setting may need to be handled differently based on Event class implementation
         
-        // Set location if provided
-        if (locationWorld != null) {
+        // Set location if provided (either custom or preset)
+        String presetLocationName = (String) session.getCreationData("presetLocationName");
+        if (presetLocationName != null) {
+            // Use preset location
+            plugin.getLocationManager().getPresetLocation(presetLocationName).ifPresentOrElse(
+                presetLocation -> {
+                    Location loc = presetLocation.location();
+                    event.setLocation(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ());
+                },
+                () -> {
+                    player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§cWarning: Preset location '" + presetLocationName + "' no longer exists!");
+                }
+            );
+        } else if (locationWorld != null) {
+            // Use custom location
             Double x = (Double) session.getCreationData("locationX");
             Double y = (Double) session.getCreationData("locationY");
             Double z = (Double) session.getCreationData("locationZ");
@@ -1143,6 +1236,66 @@ public class PlayerListener implements Listener {
                     player.sendMessage(plugin.getConfigManager().getPrefix() + "§bViewing: " + itemName);
                 }
                 break;
+        }
+    }
+    
+    private void handleHudSettingsGUI(Player player, String itemName) {
+        switch (itemName) {
+            case "§aToggle Sidebar":
+                plugin.getHUDManager().toggleSidebar(player);
+                player.sendMessage("§aSidebar toggled.");
+                break;
+            case "§cToggle Boss Bar":
+                plugin.getHUDManager().toggleBossBar(player);
+                player.sendMessage("§aBoss bar toggled.");
+                break;
+            case "§7Back":
+                plugin.getGUIManager().openEventsGUI(player);
+                break;
+        }
+    }
+    
+    private void handlePresetLocationSelectionGUI(Player player, String title, String itemName, boolean isShiftClick) {
+        GUISession session = plugin.getGUIManager().getOrCreateSession(player.getUniqueId());
+        
+        if (itemName.equals("§7« Back to Location Selection")) {
+            plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+            return;
+        }
+        
+        // Handle preset location selection
+        if (itemName.startsWith("§a")) {
+            String presetName = itemName.substring(2); // Remove color code
+            
+            if (isShiftClick) {
+                // Teleport for preview
+                plugin.getLocationManager().getPresetLocation(presetName).ifPresentOrElse(
+                    presetLocation -> {
+                        player.teleport(presetLocation.location());
+                        player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                            "§aTeleported to '" + presetName + "' for preview!");
+                        player.sendMessage("§7Close this menu to continue or click another location.");
+                    },
+                    () -> {
+                        player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                            "§cLocation '" + presetName + "' no longer exists!");
+                        // Refresh the GUI
+                        plugin.getAdminGUIManager().openPresetLocationSelectionGUI(player, session);
+                    }
+                );
+            } else {
+                // Select this preset location
+                session.setCreationData("presetLocationName", presetName);
+                // Clear custom location data
+                session.setCreationData("locationWorld", null);
+                session.setCreationData("locationX", null);
+                session.setCreationData("locationY", null);
+                session.setCreationData("locationZ", null);
+                
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                    "§aSelected preset location: " + presetName);
+                plugin.getAdminGUIManager().openEventCreationStep(player, GUISession.EventCreationStep.LOCATION);
+            }
         }
     }
 } 

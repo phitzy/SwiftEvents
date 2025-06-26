@@ -43,6 +43,8 @@ hud:
   position: ACTION_BAR
   # Duration in seconds for notifications
   notification_duration: 5
+  # Bossbar rotation interval when multiple events are active (in seconds)
+  bossbar_rotation_interval: 5
   # Enable HUD animations
   animations_enabled: true
   # Custom colors for different event types
@@ -226,6 +228,8 @@ messages:
   event_cancelled: "§cEvent '{event_name}' has been cancelled!"
   already_participating: "§cYou are already participating in this event!"
   not_participating: "§cYou are not participating in this event!"
+  player_joined_staging: "§a{player} has joined the event {current_participants}/{max_participants}"
+  player_left_staging: "§c{player} has left the event {current_participants}/{max_participants}"
   creation_success: "§aEvent '{event_name}' has been created successfully!"
   creation_failed: "§cFailed to create event. Please check your parameters."
   deletion_success: "§aEvent '{event_name}' has been deleted successfully!"

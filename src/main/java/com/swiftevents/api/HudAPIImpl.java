@@ -7,17 +7,22 @@ import org.bukkit.entity.Player;
 
 import java.util.UUID;
 
-public class HudAPIManager implements HudAPI {
+public class HudAPIImpl implements HudAPI {
 
     private final SwiftEventsPlugin plugin;
 
-    public HudAPIManager(SwiftEventsPlugin plugin) {
+    public HudAPIImpl(SwiftEventsPlugin plugin) {
         this.plugin = plugin;
     }
 
     @Override
     public void sendMessage(Player player, String message) {
-        plugin.getHUDManager().sendHUDMessage(player, message);
+        plugin.getHUDManager().sendActionBarMessage(player, message);
+    }
+
+    @Override
+    public boolean isHudEnabled() {
+        return plugin.getConfigManager().isHUDEnabled();
     }
 
     @Override
@@ -33,14 +38,8 @@ public class HudAPIManager implements HudAPI {
 
     @Override
     public void sendTemporaryMessage(Player player, String message, int duration) {
-        // The default sendHUDMessage has a built-in temporary duration for boss bars.
-        // For action bars, we might need a manual clear if we want it to disappear before another message comes.
-        // For now, we will just use the default behavior.
-        plugin.getHUDManager().sendHUDMessage(player, message);
-    }
-
-    @Override
-    public boolean isHudEnabled() {
-        return plugin.getConfigManager().isHUDEnabled();
+        // The HUDManager handles displaying messages; we'll use the action bar.
+        // A more complex implementation could involve custom tasks for duration.
+        plugin.getHUDManager().sendActionBarMessage(player, message);
     }
 } 

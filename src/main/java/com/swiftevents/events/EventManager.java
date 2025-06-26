@@ -136,6 +136,11 @@ public class EventManager {
             }
         }
         
+        // Update HUD periodically for time-sensitive information
+        if (plugin.getConfigManager().isHUDEnabled()) {
+            plugin.getHUDManager().updateActiveEvents();
+        }
+        
         // Call hooks periodically instead of every update
         if (currentTime - lastHookUpdate > HOOK_UPDATE_INTERVAL) {
             lastHookUpdate = currentTime;
@@ -214,7 +219,7 @@ public class EventManager {
         for (UUID participantId : playersToNotify) {
             Player player = Bukkit.getPlayer(participantId);
             if (player != null && player.isOnline()) {
-                plugin.getHUDManager().sendHUDMessage(player, message);
+                plugin.getHUDManager().sendActionBarMessage(player, message);
             }
         }
     }
@@ -224,10 +229,17 @@ public class EventManager {
         StringBuilder sb = STRING_BUILDER.get();
         sb.setLength(0); // Clear the builder
         
-        sb.append("§6").append(event.getName())
-          .append(" §7| §a").append(event.getStatus().name())
-          .append(" §7| §e").append(event.getFormattedRemainingTime())
-          .append(" remaining");
+        if (event.getStatus() == Event.EventStatus.SCHEDULED) {
+            sb.append("§6").append(event.getName())
+                    .append(" §7| §aWaiting for players...")
+                    .append(" §7| §e").append(event.getFormattedRemainingTime())
+                    .append(" to start");
+        } else {
+            sb.append("§6").append(event.getName())
+                    .append(" §7| §a").append(event.getStatus().name())
+                    .append(" §7| §e").append(event.getFormattedRemainingTime())
+                    .append(" remaining");
+        }
         
         return sb.toString();
     }
@@ -255,45 +267,39 @@ public class EventManager {
         Event event = new Event(name, description, type);
         event.setCreatedBy(creatorId);
         
-        // Call hooks before creation
-        if (!plugin.getHookManager().callEventPreCreate(event)) {
-            return null; // Hook cancelled creation
-        }
+        allEvents.put(event.getId(), event);
         
         // Fire Bukkit event
         SwiftEventCreateEvent createEvent = new SwiftEventCreateEvent(event);
         Bukkit.getPluginManager().callEvent(createEvent);
-        if (createEvent.isCancelled()) {
-            return null;
-        }
         
-        allEvents.put(event.getId(), event);
-        
-        // Save to database asynchronously to avoid blocking
-        plugin.getDatabaseManager().saveEvent(event).thenAccept(saveSuccess -> {
-            if (!saveSuccess) {
-                plugin.getLogger().warning("Failed to save event " + event.getName() + " to database!");
-            } else {
-                plugin.getLogger().info("Successfully saved event " + event.getName() + " (ID: " + event.getId() + ")");
-            }
-        });
+        // Save the event
+        plugin.getDatabaseManager().saveEvent(event);
         
         // Call hooks after creation
         plugin.getHookManager().callEventCreated(event);
+
+        // Announce the event creation if it's scheduled
+        if (event.isScheduled()) {
+            plugin.getChatManager().announceEvent(event, ChatManager.EventAnnouncement.CREATED);
+        }
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return event;
     }
     
     public boolean deleteEvent(String eventId) {
-        Event event = allEvents.remove(eventId);
+        Event event = allEvents.get(eventId);
         if (event == null) {
             return false;
         }
         
-        // Remove from active events too
+        allEvents.remove(eventId);
         activeEvents.remove(eventId);
         
-        // Clean up caches
+        // Clean up caches for this event
         hudMessageCache.remove(eventId);
         hudCacheTimestamps.remove(eventId);
         
@@ -306,6 +312,9 @@ public class EventManager {
         
         // Call hooks after deletion
         plugin.getHookManager().callEventEnded(event, "deleted");
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -328,18 +337,36 @@ public class EventManager {
         
         activeEvents.put(eventId, event);
         
+        // Teleport all participants to the event location
+        if (event.hasLocation()) {
+            for (UUID participantId : event.getParticipants()) {
+                Player participant = Bukkit.getPlayer(participantId);
+                if (participant != null) {
+                    teleportToEvent(participant, eventId);
+                }
+            }
+        }
+        
         // Fire Bukkit event
         SwiftEventStartEvent startEvent = new SwiftEventStartEvent(event);
         Bukkit.getPluginManager().callEvent(startEvent);
+
+        // Announce the event start
+        plugin.getChatManager().announceEvent(event, ChatManager.EventAnnouncement.STARTING);
         
         // Notify participants
-        notifyParticipants(event, plugin.getConfigManager().getMessage("event_started"));
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("event_name", event.getName());
+        notifyParticipants(event, "event_started", placeholders);
         
         // Save the updated event
         plugin.getDatabaseManager().saveEvent(event);
         
         // Call hooks after starting
         plugin.getHookManager().callEventStarted(event);
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -364,16 +391,24 @@ public class EventManager {
         // Fire Bukkit event
         SwiftEventEndEvent endEvent = new SwiftEventEndEvent(event, "completed");
         Bukkit.getPluginManager().callEvent(endEvent);
+
+        // Announce the event end
+        plugin.getChatManager().announceEvent(event, ChatManager.EventAnnouncement.ENDED);
         
         // Distribute rewards and notify participants
         distributeRewards(event);
-        notifyParticipants(event, plugin.getConfigManager().getMessage("event_ended"));
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("event_name", event.getName());
+        notifyParticipants(event, "event_ended", placeholders);
         
         // Save the updated event
         plugin.getDatabaseManager().saveEvent(event);
         
         // Call hooks after ending
         plugin.getHookManager().callEventEnded(event, "completed");
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -396,13 +431,18 @@ public class EventManager {
         Bukkit.getPluginManager().callEvent(endEvent);
         
         // Notify participants
-        notifyParticipants(event, plugin.getConfigManager().getMessage("event_cancelled"));
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("event_name", event.getName());
+        notifyParticipants(event, "event_cancelled", placeholders);
         
         // Save the updated event
         plugin.getDatabaseManager().saveEvent(event);
         
         // Call hooks after cancellation
         plugin.getHookManager().callEventEnded(event, "cancelled");
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -416,10 +456,15 @@ public class EventManager {
         event.setStatus(Event.EventStatus.PAUSED);
         
         // Notify participants
-        notifyParticipants(event, plugin.getConfigManager().getMessage("event_paused"));
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("event_name", event.getName());
+        notifyParticipants(event, "event_paused", placeholders);
         
         // Save the updated event
         plugin.getDatabaseManager().saveEvent(event);
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -433,10 +478,15 @@ public class EventManager {
         event.setStatus(Event.EventStatus.ACTIVE);
         
         // Notify participants
-        notifyParticipants(event, plugin.getConfigManager().getMessage("event_resumed"));
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("event_name", event.getName());
+        notifyParticipants(event, "event_resumed", placeholders);
         
         // Save the updated event
         plugin.getDatabaseManager().saveEvent(event);
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
         
         return true;
     }
@@ -463,8 +513,16 @@ public class EventManager {
             return false; // Hook cancelled join
         }
         
+        // Store the participant count before adding the new player for notifications
+        int participantsBeforeJoin = event.getCurrentParticipants();
+        
         if (!event.addParticipant(playerId)) {
             return false; // Event is full or player already in event
+        }
+        
+        // Teleport player to lobby if the event is scheduled
+        if (player != null && event.isScheduled() && event.hasLocation()) {
+            teleportToEvent(player, eventId);
         }
         
         // Fire Bukkit event
@@ -477,9 +535,32 @@ public class EventManager {
         
         // Notify player
         if (player != null) {
-            String message = plugin.getConfigManager().getMessage("event_joined")
-                    .replace("{event}", event.getName());
+            String message = plugin.getConfigManager().replacePlaceholder(
+                plugin.getConfigManager().getMessage("event_joined"), 
+                "event_name", 
+                event.getName()
+            );
             player.sendMessage(plugin.getConfigManager().getPrefix() + message);
+        }
+        
+        // Notify all participants in staging events when someone joins
+        if (event.getStatus() == Event.EventStatus.SCHEDULED && player != null) {
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("player", player.getName());
+            placeholders.put("current_participants", String.valueOf(participantsBeforeJoin + 1));
+            placeholders.put("max_participants", event.hasUnlimitedSlots() ? "∞" : String.valueOf(event.getMaxParticipants()));
+            
+            String notificationMessage = plugin.getConfigManager().getMessage("player_joined_staging", placeholders);
+            
+            // Send to all current participants (excluding the one who just joined to avoid duplicate messages)
+            for (UUID participantId : event.getParticipants()) {
+                if (!participantId.equals(playerId)) { // Exclude the new player
+                    Player participant = Bukkit.getPlayer(participantId);
+                    if (participant != null && participant.isOnline()) {
+                        participant.sendMessage(plugin.getConfigManager().getPrefix() + notificationMessage);
+                    }
+                }
+            }
         }
         
         // Save the updated event
@@ -490,6 +571,9 @@ public class EventManager {
             plugin.getHookManager().callPlayerJoined(player, event);
         }
         
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
+        
         return true;
     }
     
@@ -499,8 +583,6 @@ public class EventManager {
             return false;
         }
 
-        event.removeParticipant(playerId);
-
         Player player = Bukkit.getPlayer(playerId);
 
         // Fire Bukkit event
@@ -509,16 +591,45 @@ public class EventManager {
 
         // Notify player
         if (player != null) {
-            String message = plugin.getConfigManager().getMessage("event_left")
-                    .replace("{event_name}", event.getName());
+            String message = plugin.getConfigManager().replacePlaceholder(
+                plugin.getConfigManager().getMessage("event_left"), 
+                "event_name", 
+                event.getName()
+            );
             player.sendMessage(plugin.getConfigManager().getPrefix() + message);
         }
+
+        // Notify remaining participants in staging events when someone leaves
+        if (event.getStatus() == Event.EventStatus.SCHEDULED && player != null) {
+            // Calculate the participant count after the player leaves
+            int participantsAfterLeave = event.getCurrentParticipants() - 1;
+            
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("player", player.getName());
+            placeholders.put("current_participants", String.valueOf(participantsAfterLeave));
+            placeholders.put("max_participants", event.hasUnlimitedSlots() ? "∞" : String.valueOf(event.getMaxParticipants()));
+            
+            String notificationMessage = plugin.getConfigManager().getMessage("player_left_staging", placeholders);
+            
+            // Send to all remaining participants
+            for (UUID participantId : event.getParticipants()) {
+                Player participant = Bukkit.getPlayer(participantId);
+                if (participant != null && participant.isOnline()) {
+                    participant.sendMessage(plugin.getConfigManager().getPrefix() + notificationMessage);
+                }
+            }
+        }
+
+        event.removeParticipant(playerId);
 
         // Save the updated event
         saveEvent(event);
 
         // Call hooks after leaving
         plugin.getHookManager().callPlayerLeft(player, playerId, event, "manual");
+        
+        // Update HUD for all players
+        plugin.getHUDManager().updateActiveEvents();
 
         return true;
     }
@@ -530,8 +641,8 @@ public class EventManager {
             return false;
         }
 
-        if (!event.isActive()) {
-            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou can only teleport to an active event.");
+        if (!event.isActive() && !event.isScheduled()) {
+            player.sendMessage(plugin.getConfigManager().getPrefix() + "§cYou can only teleport to an active or scheduled event.");
             return false;
         }
 
@@ -562,9 +673,14 @@ public class EventManager {
         for (UUID participantId : event.getParticipants()) {
             Player player = Bukkit.getPlayer(participantId);
             if (player != null && player.isOnline()) {
-                player.sendMessage(message);
+                player.sendMessage(plugin.getConfigManager().getPrefix() + message);
             }
         }
+    }
+    
+    private void notifyParticipants(Event event, String messageKey, Map<String, String> placeholders) {
+        String message = plugin.getConfigManager().getMessage(messageKey, placeholders);
+        notifyParticipants(event, message);
     }
     
     private void distributeRewards(Event event) {
@@ -625,6 +741,26 @@ public class EventManager {
                 .anyMatch(event -> event.isActive() && event.isParticipant(playerId));
     }
     
+    public boolean eventsConflict(Event event1, Event event2) {
+        // Check for time overlap
+        if (event1.getStartTime() < event2.getEndTime() && event2.getStartTime() < event1.getEndTime()) {
+            // Check for location overlap if both events have locations
+            if (event1.hasLocation() && event2.hasLocation()) {
+                if (event1.getLocation().equals(event2.getLocation())) {
+                    return true; // Same location and time overlap
+                }
+            }
+
+            // Check for participant overlap
+            Set<UUID> participants1 = new HashSet<>(event1.getParticipants());
+            participants1.retainAll(event2.getParticipants());
+            if (!participants1.isEmpty()) {
+                return true; // Overlapping participants and time
+            }
+        }
+        return false;
+    }
+    
     public void saveAllEvents() {
         // Clear and reuse collection
         eventsToSave.clear();
@@ -635,9 +771,7 @@ public class EventManager {
     }
     
     public void saveEvent(Event event) {
-        if (event != null) {
-            plugin.getDatabaseManager().saveEvent(event);
-        }
+        plugin.getDatabaseManager().saveEvent(event);
     }
     
     public void shutdown() {

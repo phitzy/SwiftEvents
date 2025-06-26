@@ -11,10 +11,6 @@ public class GUISession {
     private int currentPage;
     private long lastRefresh;
     
-    // For admin GUI state
-    private AdminGUIPage adminPage;
-    private Map<String, Object> adminState;
-    
     // For event creation wizard
     private EventCreationStep creationStep;
     private Map<String, Object> creationData;
@@ -25,8 +21,6 @@ public class GUISession {
         this.currentSort = EventSort.NAME;
         this.currentPage = 0;
         this.lastRefresh = System.currentTimeMillis();
-        this.adminPage = AdminGUIPage.MAIN;
-        this.adminState = new HashMap<>();
         this.creationStep = EventCreationStep.TYPE_SELECTION;
         this.creationData = new HashMap<>();
     }
@@ -72,29 +66,6 @@ public class GUISession {
         this.lastRefresh = System.currentTimeMillis();
     }
     
-    // Admin GUI state
-    public AdminGUIPage getAdminPage() {
-        return adminPage;
-    }
-    
-    public void setAdminPage(AdminGUIPage adminPage) {
-        this.adminPage = adminPage;
-        updateRefreshTime();
-    }
-    
-    public Map<String, Object> getAdminState() {
-        return adminState;
-    }
-    
-    public void setAdminState(String key, Object value) {
-        this.adminState.put(key, value);
-        updateRefreshTime();
-    }
-    
-    public Object getAdminState(String key) {
-        return adminState.get(key);
-    }
-    
     // Event creation wizard state
     public EventCreationStep getCreationStep() {
         return creationStep;
@@ -134,10 +105,6 @@ public class GUISession {
     }
     
     // Enums for GUI navigation
-    public enum AdminGUIPage {
-        MAIN, EVENT_MANAGEMENT, STATISTICS, SETTINGS, TASKER, USER_MANAGEMENT
-    }
-    
     public enum EventCreationStep {
         TYPE_SELECTION, BASIC_INFO, SETTINGS, LOCATION, REWARDS, CONFIRMATION
     }
