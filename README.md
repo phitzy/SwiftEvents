@@ -279,7 +279,106 @@ hud:
 
 </details>
 
+---
 
+## 📝 **TODO / Planned Features**
+
+### 🚨 **High Priority**
+- [ ] **Complete GUI Implementation**
+  - [ ] Player event browser GUI with filtering and sorting
+  - [ ] Admin management panel with comprehensive controls
+  - [ ] Event creation wizard with step-by-step setup
+  - [ ] Real-time participant list with status indicators
+  - [ ] Event statistics and analytics dashboard
+  - [ ] Settings configuration GUI for admins
+
+### 🎯 **Core Features**
+- [ ] **Enhanced Event Types**
+  - [ ] King of the Hill events
+  - [ ] Team-based competitions
+  - [ ] Elimination tournaments
+  - [ ] Time-based challenges
+  - [ ] Multi-stage events
+
+- [ ] **Advanced Automation**
+  - [ ] Conditional event triggers (time, weather, player count)
+  - [ ] Event queue system for scheduled events
+  - [ ] Dynamic difficulty scaling
+  - [ ] Automatic event balancing
+
+- [ ] **Reward System**
+  - [ ] Multiple reward tiers (1st, 2nd, 3rd place)
+  - [ ] Economy integration with Vault
+  - [ ] Custom item rewards with NBT support
+  - [ ] Experience and level rewards
+  - [ ] Title and achievement system
+
+### 🔧 **Technical Improvements**
+- [ ] **Performance Optimization**
+  - [ ] Async database operations
+  - [ ] Event caching system
+  - [ ] Memory usage optimization
+  - [ ] Database query optimization
+
+- [ ] **API Enhancements**
+  - [ ] More comprehensive hook system
+  - [ ] Event builder pattern API
+  - [ ] Custom event type registration
+  - [ ] Advanced event modification API
+
+### 🌟 **Quality of Life**
+- [ ] **Player Experience**
+  - [ ] Event history and statistics for players
+  - [ ] Personal event preferences
+  - [ ] Event notifications and reminders
+  - [ ] Spectator mode for events
+  - [ ] Event replay system
+
+- [ ] **Admin Tools**  
+  - [ ] Event templates and presets manager
+  - [ ] Bulk event operations
+  - [ ] Advanced logging and debugging
+  - [ ] Performance monitoring dashboard
+  - [ ] Automated backup and restore
+
+### 🔌 **Integrations**
+- [ ] **Discord Integration**
+  - [ ] Event announcements via webhooks
+  - [ ] Cross-platform event management
+  - [ ] Discord bot commands
+
+- [ ] **Plugin Compatibility**
+  - [ ] PlaceholderAPI placeholders
+  - [ ] WorldGuard region integration
+  - [ ] MythicMobs integration for PvE events
+  - [ ] Citizens NPC integration
+
+### 🌐 **Advanced Features**
+- [ ] **Multi-Server Support**
+  - [ ] Cross-server events via BungeeCord/Velocity
+  - [ ] Shared event database
+  - [ ] Network-wide leaderboards
+
+- [ ] **Customization**
+  - [ ] Custom sound effects and particles
+  - [ ] Configurable GUI layouts and themes
+  - [ ] Custom message formatting with MiniMessage
+  - [ ] Skin/texture pack integration for event items
+
+### 🐛 **Bug Fixes & Polish**
+- [ ] **Stability**
+  - [ ] Edge case handling for event lifecycle
+  - [ ] Memory leak prevention
+  - [ ] Thread safety improvements
+  - [ ] Error handling and recovery
+
+- [ ] **Documentation**
+  - [ ] Video tutorials and guides
+  - [ ] Developer API documentation
+  - [ ] Configuration examples and templates
+  - [ ] Migration guides from other event plugins
+
+---
 
 ## 💻 **Developer API**
 

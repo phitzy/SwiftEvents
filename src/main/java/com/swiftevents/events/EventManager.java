@@ -45,13 +45,19 @@ public class EventManager {
     
     private void loadAllEvents() {
         plugin.getDatabaseManager().loadAllEvents().thenAccept(events -> {
-            for (Event event : events) {
-                allEvents.put(event.getId(), event);
-                if (event.isActive()) {
-                    activeEvents.put(event.getId(), event);
+            // Synchronize with the main thread to avoid race conditions
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Event event : events) {
+                    // Only add if not already present (to avoid overwriting newly created events)
+                    if (!allEvents.containsKey(event.getId())) {
+                        allEvents.put(event.getId(), event);
+                        if (event.isActive()) {
+                            activeEvents.put(event.getId(), event);
+                        }
+                    }
                 }
-            }
-            plugin.getLogger().info("Loaded " + events.size() + " events from storage");
+                plugin.getLogger().info("Loaded " + events.size() + " events from storage");
+            });
         });
     }
     
@@ -177,8 +183,17 @@ public class EventManager {
         
         allEvents.put(event.getId(), event);
         
-        // Save to database
-        plugin.getDatabaseManager().saveEvent(event);
+        // Save to database immediately and wait for completion to ensure consistency
+        try {
+            boolean saveSuccess = plugin.getDatabaseManager().saveEvent(event).get();
+            if (!saveSuccess) {
+                plugin.getLogger().warning("Failed to save event " + event.getName() + " to database!");
+            } else {
+                plugin.getLogger().info("Successfully saved event " + event.getName() + " (ID: " + event.getId() + ")");
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error saving event " + event.getName() + ": " + e.getMessage());
+        }
         
         // Call hooks after creation
         plugin.getHookManager().callEventCreated(event);

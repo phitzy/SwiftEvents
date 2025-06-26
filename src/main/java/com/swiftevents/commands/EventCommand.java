@@ -67,16 +67,21 @@ public class EventCommand implements CommandExecutor {
     private void handleJoin(Player player, String[] args) {
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cUsage: /event join <event_name>");
+                    "§cUsage: /event join <event_name_or_id>");
             return;
         }
         
-        String eventName = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
-        Event event = findEventByName(eventName);
+        String eventIdentifier = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        
+        // First try to find by ID (for [JOIN] buttons), then by name (for manual commands)
+        Event event = plugin.getEventManager().getEvent(eventIdentifier);
+        if (event == null) {
+            event = findEventByName(eventIdentifier);
+        }
         
         if (event == null) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cEvent not found: " + eventName);
+                    "§cEvent not found: " + eventIdentifier);
             return;
         }
         
@@ -112,16 +117,21 @@ public class EventCommand implements CommandExecutor {
     private void handleLeave(Player player, String[] args) {
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cUsage: /event leave <event_name>");
+                    "§cUsage: /event leave <event_name_or_id>");
             return;
         }
         
-        String eventName = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
-        Event event = findEventByName(eventName);
+        String eventIdentifier = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        
+        // First try to find by ID, then by name
+        Event event = plugin.getEventManager().getEvent(eventIdentifier);
+        if (event == null) {
+            event = findEventByName(eventIdentifier);
+        }
         
         if (event == null) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cEvent not found: " + eventName);
+                    "§cEvent not found: " + eventIdentifier);
             return;
         }
         
@@ -177,16 +187,21 @@ public class EventCommand implements CommandExecutor {
     private void handleInfo(Player player, String[] args) {
         if (args.length < 2) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cUsage: /event info <event_name>");
+                    "§cUsage: /event info <event_name_or_id>");
             return;
         }
         
-        String eventName = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
-        Event event = findEventByName(eventName);
+        String eventIdentifier = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        
+        // First try to find by ID, then by name
+        Event event = plugin.getEventManager().getEvent(eventIdentifier);
+        if (event == null) {
+            event = findEventByName(eventIdentifier);
+        }
         
         if (event == null) {
             player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                    "§cEvent not found: " + eventName);
+                    "§cEvent not found: " + eventIdentifier);
             return;
         }
         

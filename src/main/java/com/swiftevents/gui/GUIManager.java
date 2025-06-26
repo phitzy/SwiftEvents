@@ -26,7 +26,7 @@ public class GUIManager {
         }
         
         List<Event> events = plugin.getEventManager().getAllEvents();
-        int size = Math.min(54, ((events.size() + 8) / 9) * 9);
+        int size = Math.max(9, Math.min(54, ((events.size() + 8) / 9) * 9));
         
         Inventory gui = Bukkit.createInventory(null, size, plugin.getConfigManager().getGUITitle());
         
