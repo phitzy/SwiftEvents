@@ -1,0 +1,152 @@
+# SwiftEvents English Language File
+# This file contains all user-facing messages in English
+
+# General Messages
+prefix: "§6[SwiftEvents]§r "
+no_permission: "§cYou don't have permission to use this command!"
+player_only: "§cThis command can only be used by players!"
+console_only: "§cThis command can only be used from console!"
+
+# Event Messages
+event_joined: "§aYou have joined the event: {event_name}"
+event_left: "§cYou have left the event: {event_name}"
+event_not_found: "§cEvent not found: {event_name}"
+event_full: "§cThis event is full and cannot accept more participants"
+event_started: "§aEvent '{event_name}' has started!"
+event_ended: "§eEvent '{event_name}' has ended!"
+event_cancelled: "§cEvent '{event_name}' has been cancelled!"
+already_participating: "§cYou are already participating in this event!"
+not_participating: "§cYou are not participating in this event!"
+
+# Event Creation/Management
+creation_success: "§aEvent '{event_name}' has been created successfully!"
+creation_failed: "§cFailed to create event. Please check your parameters."
+deletion_success: "§aEvent '{event_name}' has been deleted successfully!"
+deletion_failed: "§cFailed to delete event. Please try again."
+
+# Event Tasker Messages
+tasker_enabled: "§aEvent Tasker has been enabled!"
+tasker_disabled: "§cEvent Tasker has been disabled!"
+tasker_no_presets: "§cNo event presets are configured for the tasker!"
+automatic_event_starting: "§6An automatic event is starting: {event_name}!"
+
+# Player Limitations
+cooldown_active: "§cYou must wait {time} before joining another event!"
+max_events_reached: "§cYou have reached the maximum number of events you can join!"
+
+# Configuration Messages
+config_reloaded: "§aConfiguration has been reloaded successfully!"
+config_invalid: "§cConfiguration validation failed: {errors}"
+config_updated: "§aConfiguration setting '{key}' updated to '{value}'"
+config_get_success: "§7{key}: §f{value}"
+config_key_not_found: "§cConfiguration key not found: {key}"
+
+# Backup Messages
+backup_created: "§aEvent data backup created successfully!"
+backup_failed: "§cFailed to create backup: {error}"
+backup_restored: "§aBackup restored successfully!"
+
+# Command Usage Messages
+usage_event: "§cUsage: /event <join|leave|list|info|teleport> [event_name]"
+usage_event_join: "§cUsage: /event join <event_name>"
+usage_event_leave: "§cUsage: /event leave <event_name>"
+usage_event_info: "§cUsage: /event info <event_name>"
+usage_event_teleport: "§cUsage: /event teleport <event_name>"
+
+usage_admin: "§cUsage: /eventadmin <create|delete|start|stop|list|gui|reload|config|backup>"
+usage_admin_create: "§cUsage: /eventadmin create <name> <type> <description>"
+usage_admin_delete: "§cUsage: /eventadmin delete <event_name>"
+usage_admin_start: "§cUsage: /eventadmin start <event_name>"
+usage_admin_stop: "§cUsage: /eventadmin stop <event_name>"
+usage_admin_config: "§cUsage: /eventadmin config <get|set|validate|list> [key] [value]"
+usage_admin_backup: "§cUsage: /eventadmin backup <create|info>"
+usage_admin_tasker: "§cUsage: /eventadmin tasker <start|stop|status|force|presets>"
+
+# Status Messages
+event_status_created: "Created"
+event_status_scheduled: "Scheduled"
+event_status_active: "Active"
+event_status_paused: "Paused"
+event_status_completed: "Completed"
+event_status_cancelled: "Cancelled"
+
+# GUI Messages
+gui_title_events: "§6SwiftEvents"
+gui_title_admin: "§4Admin - Event Management"
+gui_button_join: "§aJoin Event"
+gui_button_leave: "§cLeave Event"
+gui_button_info: "§9Event Info"
+gui_button_teleport: "§bTeleport"
+gui_button_refresh: "§aRefresh"
+gui_button_close: "§cClose"
+gui_button_back: "§7← Back"
+gui_button_create: "§aCreate New Event"
+gui_button_manage: "§6Manage Events"
+
+# Event Types
+event_type_pvp: "PvP"
+event_type_pve: "PvE"
+event_type_building: "Building"
+event_type_racing: "Racing"
+event_type_treasure_hunt: "Treasure Hunt"
+event_type_mini_game: "Mini Game"
+event_type_custom: "Custom"
+
+# Help Messages
+help_header: "§7═══════════════════════════════════════════════════"
+help_title_user: "§6SwiftEvents User Commands:"
+help_title_admin: "§6SwiftEvents Admin Commands:"
+help_footer: "§7═══════════════════════════════════════════════════"
+
+help_user_join: "§f/event join <name> §7- Join an event"
+help_user_leave: "§f/event leave <name> §7- Leave an event"
+help_user_list: "§f/event list §7- List available events"
+help_user_info: "§f/event info <name> §7- Get event information"
+help_user_teleport: "§f/event teleport <name> §7- Teleport to event location"
+help_user_gui: "§f/eventgui §7- Open events menu"
+
+help_admin_create: "§f/eventadmin create <name> <type> <description> §7- Create new event"
+help_admin_delete: "§f/eventadmin delete <name> §7- Delete an event"
+help_admin_start: "§f/eventadmin start <name> §7- Start an event"
+help_admin_stop: "§f/eventadmin stop <name> §7- Stop an event"
+help_admin_list: "§f/eventadmin list §7- List all events"
+help_admin_gui: "§f/eventadmin gui §7- Open admin GUI"
+help_admin_reload: "§f/eventadmin reload §7- Reload configuration"
+help_admin_tasker: "§f/eventadmin tasker <options> §7- Manage auto tasker"
+help_admin_config: "§f/eventadmin config <options> §7- Manage configuration"
+help_admin_backup: "§f/eventadmin backup <options> §7- Manage backups"
+
+help_event_types: "§7Event Types: §fPVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM"
+
+# Announcements
+announcement_event_created: "§6A new event has been created: {event_name}!"
+announcement_event_starting: "§aEvent '{event_name}' is starting now!"
+announcement_event_ending: "§eEvent '{event_name}' is ending in {time}!"
+announcement_event_ended: "§7Event '{event_name}' has ended. Thanks to all participants!"
+announcement_reminder: "§6Reminder: Event '{event_name}' starts in {time}!"
+
+# Error Messages
+error_generic: "§cAn error occurred. Please try again."
+error_event_not_found: "§cEvent not found."
+error_event_not_active: "§cThis event is not currently active."
+error_event_already_active: "§cThis event is already active."
+error_player_not_found: "§cPlayer not found."
+error_invalid_event_type: "§cInvalid event type. Available types: {types}"
+error_teleport_failed: "§cTeleport failed. Event location may not be set."
+error_gui_disabled: "§cGUI is currently disabled."
+
+# Success Messages
+success_event_created: "§aEvent created successfully!"
+success_event_deleted: "§aEvent deleted successfully!"
+success_event_started: "§aEvent started successfully!"
+success_event_stopped: "§aEvent stopped successfully!"
+success_teleport: "§aTeleported to event location!"
+success_backup_created: "§aBackup created successfully!"
+success_config_updated: "§aConfiguration updated!"
+
+# Time Formatting
+time_seconds: "{seconds}s"
+time_minutes: "{minutes}m"
+time_hours: "{hours}h"
+time_days: "{days}d"
+time_format_full: "{hours}h {minutes}m {seconds}s" 

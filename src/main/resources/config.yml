@@ -1,0 +1,241 @@
+# SwiftEvents Configuration File
+# This file contains all configuration options for the SwiftEvents plugin
+
+# Database Configuration
+database:
+  # Set to true to use MySQL database, false to use JSON files
+  enabled: false
+  type: mysql
+  host: localhost
+  port: 3306
+  name: swiftevents
+  username: root
+  password: password
+  # Advanced database settings
+  connection_timeout: 30
+  max_connections: 10
+  connection_validation_timeout: 5
+
+# JSON Storage Configuration (used when database is disabled)
+json:
+  folder: events
+  # Enable automatic backups
+  auto_backup: true
+  backup_interval: 3600  # seconds
+  max_backups: 5
+
+# GUI Configuration
+gui:
+  enabled: true
+  title: "§6SwiftEvents"
+  size: 54
+  # GUI update interval in seconds
+  update_interval: 5
+  # Enable animations and effects
+  animations_enabled: true
+  # Auto-refresh GUI when events change
+  auto_refresh: true
+
+# HUD Configuration
+hud:
+  enabled: true
+  # Options: ACTION_BAR, BOSS_BAR, TITLE
+  position: ACTION_BAR
+  # Duration in seconds for notifications
+  notification_duration: 5
+  # Enable HUD animations
+  animations_enabled: true
+  # Custom colors for different event types
+  colors:
+    PVP: "#FF5555"
+    PVE: "#FFAA00"
+    BUILDING: "#55FF55"
+    RACING: "#5555FF"
+    TREASURE_HUNT: "#FFFF55"
+    MINI_GAME: "#FF55FF"
+    CUSTOM: "#AAAAAA"
+
+# Chat Configuration
+chat:
+  # Enable/disable chat announcements
+  enabled: true
+  # Play sound effects with announcements
+  sound_effects: true
+  # Announce to all players or only participants
+  announce_to_all: true
+  # Time before event starts to send reminders (in minutes)
+  reminder_time: 5
+  # Enable automatic reminders
+  reminders_enabled: true
+  # Enable clickable chat elements
+  interactive_messages: true
+  # Enable hover tooltips
+  hover_tooltips: true
+
+# Event System Configuration
+events:
+  # Maximum number of concurrent active events
+  max_concurrent: 5
+  # Auto-save interval in seconds
+  auto_save_interval: 300
+  # Event cooldown per player (seconds)
+  player_cooldown: 300
+  # Maximum events a player can join simultaneously
+  max_events_per_player: 3
+  # Enable event statistics tracking
+  track_statistics: true
+  # Auto-cancel events with no participants after X minutes
+  auto_cancel_empty_after: 10
+
+# Automatic Event Tasker Configuration
+event_tasker:
+  # Enable/disable the automatic event tasker
+  enabled: false
+  # Interval between automatic event checks (in seconds)
+  check_interval: 60
+  # Minimum time between events (in minutes)
+  min_event_interval: 30
+  # Maximum time between events (in minutes) 
+  max_event_interval: 120
+  # Whether to announce upcoming events
+  announce_upcoming: true
+  # Time before event starts to announce (in minutes)
+  announce_time: 5
+  # Event presets/templates for automatic scheduling
+  presets:
+    pvp_tournament:
+      name: "PvP Tournament #{number}"
+      description: "Automated PvP tournament - fight for glory!"
+      type: PVP
+      duration: 1800  # 30 minutes in seconds
+      max_participants: 20
+      min_participants: 4
+      rewards:
+        - "give {winner} diamond_sword 1"
+        - "give {winner} golden_apple 5"
+      enabled: true
+      weight: 10  # Higher weight = more likely to be selected
+      required_permission: "swiftevents.event.pvp"
+    treasure_hunt:
+      name: "Treasure Hunt #{number}"
+      description: "Automated treasure hunt - find the hidden treasures!"
+      type: TREASURE_HUNT
+      duration: 1200  # 20 minutes in seconds
+      max_participants: 15
+      min_participants: 3
+      rewards:
+        - "give {winner} emerald 10"
+        - "give {winner} gold_ingot 5"
+      enabled: true
+      weight: 8
+      required_permission: "swiftevents.event.treasure"
+    building_contest:
+      name: "Building Contest #{number}"
+      description: "Automated building contest - show your creativity!"
+      type: BUILDING
+      duration: 2400  # 40 minutes in seconds
+      max_participants: 10
+      min_participants: 2
+      rewards:
+        - "give {winner} diamond_block 3"
+        - "give {winner} emerald_block 2"
+      enabled: true
+      weight: 6
+      required_permission: "swiftevents.event.building"
+
+# Permission Groups Configuration
+permission_groups:
+  # Auto-join eligible groups (bypass join restrictions)
+  auto_join_groups: ["vip", "premium", "staff"]
+  # Groups that can create custom events
+  event_creator_groups: ["admin", "moderator"]
+  # Group-specific limits
+  limits:
+    default:
+      max_events_per_player: 2
+      event_cooldown: 300
+    vip:
+      max_events_per_player: 4
+      event_cooldown: 180
+    premium:
+      max_events_per_player: 6
+      event_cooldown: 120
+    staff:
+      max_events_per_player: -1  # unlimited
+      event_cooldown: 0
+
+# Localization Configuration
+localization:
+  # Default language
+  default_language: "en"
+  # Enable per-player language preferences
+  per_player_language: false
+  # Available languages
+  languages:
+    en: "English"
+    es: "Español"
+    fr: "Français"
+    de: "Deutsch"
+
+# Advanced Configuration
+advanced:
+  # Enable debug mode for troubleshooting
+  debug_mode: false
+  # Enable metrics collection
+  metrics_enabled: true
+  # Backup events on plugin shutdown
+  backup_on_shutdown: true
+  # Performance optimization settings
+  performance:
+    # Cache frequently accessed data
+    enable_caching: true
+    # Cache duration in seconds
+    cache_duration: 300
+    # Use async operations where possible
+    async_operations: true
+    # Batch database operations
+    batch_operations: true
+    batch_size: 50
+
+# Integration Settings
+integrations:
+  # PlaceholderAPI integration
+  placeholderapi: true
+  # Vault integration for economy
+  vault: true
+  # Discord webhook integration
+  discord:
+    enabled: false
+    webhook_url: ""
+    announce_events: true
+  # WorldGuard integration
+  worldguard:
+    enabled: true
+    respect_regions: true
+
+# Messages Configuration
+messages:
+  prefix: "§6[SwiftEvents]§r "
+  no_permission: "§cYou don't have permission to use this command!"
+  event_joined: "§aYou have joined the event: {event_name}"
+  event_left: "§cYou have left the event: {event_name}"
+  event_not_found: "§cEvent not found: {event_name}"
+  event_full: "§cThis event is full and cannot accept more participants"
+  event_started: "§aEvent '{event_name}' has started!"
+  event_ended: "§eEvent '{event_name}' has ended!"
+  event_cancelled: "§cEvent '{event_name}' has been cancelled!"
+  already_participating: "§cYou are already participating in this event!"
+  not_participating: "§cYou are not participating in this event!"
+  creation_success: "§aEvent '{event_name}' has been created successfully!"
+  creation_failed: "§cFailed to create event. Please check your parameters."
+  deletion_success: "§aEvent '{event_name}' has been deleted successfully!"
+  deletion_failed: "§cFailed to delete event. Please try again."
+  tasker_enabled: "§aEvent Tasker has been enabled!"
+  tasker_disabled: "§cEvent Tasker has been disabled!"
+  tasker_no_presets: "§cNo event presets are configured for the tasker!"
+  automatic_event_starting: "§6An automatic event is starting: {event_name}!"
+  cooldown_active: "§cYou must wait {time} before joining another event!"
+  max_events_reached: "§cYou have reached the maximum number of events you can join!"
+  config_reloaded: "§aConfiguration has been reloaded successfully!"
+  config_invalid: "§cConfiguration validation failed: {errors}"
+  backup_created: "§aEvent data backup created successfully!" 
