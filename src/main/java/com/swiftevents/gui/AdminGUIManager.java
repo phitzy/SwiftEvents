@@ -98,6 +98,16 @@ public class AdminGUIManager {
         activeMeta.setLore(activeLore);
         activeEventsItem.setItemMeta(activeMeta);
         gui.setItem(12, activeEventsItem);
+        
+        // Bulk Operations
+        gui.setItem(13, createItem(Material.TNT, "§c§lBulk Operations",
+            "§7Perform operations on multiple events",
+            "§7- Start/Stop multiple events",
+            "§7- Delete events in bulk",
+            "§7- Modify settings across events",
+            "§7- Export/Import event data",
+            "",
+            "§eClick for bulk tools"));
     }
     
     private void addStatisticsSection(Inventory gui) {
@@ -110,14 +120,15 @@ public class AdminGUIManager {
             "",
             "§eClick to view analytics"));
         
-        // Server Performance
-        gui.setItem(20, createItem(Material.REDSTONE, "§e§lServer Performance",
-            "§7Monitor plugin performance",
-            "§7- Memory usage",
-            "§7- Database performance",
+        // Server Performance & Debug Dashboard
+        gui.setItem(20, createItem(Material.REDSTONE, "§e§lPerformance Dashboard",
+            "§7Advanced monitoring and debugging",
+            "§7- Memory usage analysis",
+            "§7- Database performance metrics",
             "§7- Event processing speed",
+            "§7- Debug logging controls",
             "",
-            "§eClick to view metrics"));
+            "§eClick to open dashboard"));
         
         // Player Statistics
         gui.setItem(21, createItem(Material.PLAYER_HEAD, "§d§lPlayer Statistics",
@@ -149,13 +160,15 @@ public class AdminGUIManager {
             "§eClick to manage"));
         
         // Backup & Restore
-        gui.setItem(30, createItem(Material.ENDER_CHEST, "§3§lBackup & Restore",
-            "§7Manage data backups",
-            "§7- Create manual backup",
-            "§7- Restore from backup",
-            "§7- Schedule automatic backups",
+        gui.setItem(30, createItem(Material.ENDER_CHEST, "§3§lAdvanced Backup System",
+            "§7Comprehensive data protection",
+            "§7- Automatic scheduled backups",
+            "§7- Manual backup creation",
+            "§7- Selective restore options",
+            "§7- Import/Export functionality",
+            "§7- Compression and encryption",
             "",
-            "§eClick to manage"));
+            "§eClick to manage backups"));
     }
     
     private void addTaskerSection(Inventory gui) {
@@ -176,14 +189,16 @@ public class AdminGUIManager {
         tasker.setItemMeta(taskerMeta);
         gui.setItem(37, tasker);
         
-        // Event Presets
-        gui.setItem(38, createItem(Material.WRITABLE_BOOK, "§a§lEvent Presets",
-            "§7Manage event templates",
-            "§7- Create new presets",
-            "§7- Edit existing templates",
-            "§7- Set preset weights",
+        // Event Presets & Templates Manager
+        gui.setItem(38, createItem(Material.WRITABLE_BOOK, "§a§lEvent Templates Manager",
+            "§7Advanced preset and template system",
+            "§7- Create templates from events",
+            "§7- Edit existing presets",
+            "§7- Set automation weights",
+            "§7- Import/Export templates",
+            "§7- Template analytics",
             "",
-            "§eClick to manage"));
+            "§eClick to open manager"));
     }
     
     private void addUserManagementSection(Inventory gui) {

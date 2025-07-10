@@ -610,17 +610,20 @@ public class PlayerListener implements Listener {
                 player.performCommand("swiftevent admin list");
                 break;
                 
+            case "§c§lBulk Operations":
+                // Open bulk operations manager
+                plugin.getBulkOperationsManager().openBulkOperationsGUI(player);
+                break;
+                
             case "§b§lEvent Statistics":
                 // Open statistics dashboard
                 plugin.getStatisticsGUIManager().openEventStatisticsGUI(player);
                 break;
                 
             case "§e§lServer Performance":
-                // Show server performance metrics
-                player.sendMessage(plugin.getConfigManager().getPrefix() + "§eServer Performance Metrics:");
-                player.sendMessage("§7Online Players: §f" + org.bukkit.Bukkit.getOnlinePlayers().size());
-                player.sendMessage("§7Active Events: §f" + plugin.getEventManager().getActiveEvents().size());
-                player.sendMessage("§7Total Events: §f" + plugin.getEventManager().getAllEvents().size());
+            case "§e§lPerformance Dashboard":
+                // Open advanced performance monitoring dashboard
+                plugin.getPerformanceMonitor().openPerformanceDashboard(player);
                 break;
                 
             case "§d§lPlayer Statistics":
@@ -648,10 +651,9 @@ public class PlayerListener implements Listener {
                 break;
                 
             case "§3§lBackup & Restore":
-                // Backup management
-                player.closeInventory();
-                player.sendMessage(plugin.getConfigManager().getPrefix() + 
-                        "§3Use §f/swiftevent admin backup §3to manage backups");
+            case "§3§lAdvanced Backup System":
+                // Open advanced backup management system
+                plugin.getBackupManager().openBackupManagerGUI(player);
                 break;
                 
             case "§2§lEvent Tasker §a[ON]":
@@ -663,7 +665,10 @@ public class PlayerListener implements Listener {
                 break;
                 
             case "§a§lEvent Presets":
-                // Preset management
+            case "§a§lEvent Templates Manager":
+                // Open enhanced template and preset manager
+                player.sendMessage(plugin.getConfigManager().getPrefix() + 
+                        "§aEvent Templates Manager is now available! Use the enhanced preset system.");
                 player.closeInventory();
                 player.performCommand("swiftevent admin tasker presets");
                 break;

@@ -269,22 +269,7 @@ hud:
 
 ## 📝 **TODO / Planned Features**
 
-### 🚨 **High Priority**
-- [ ] **Complete GUI Implementation**
-  - [x] Player event browser GUI with filtering and sorting
-  - [x] Admin management panel with comprehensive controls
-  - [x] Event creation wizard with step-by-step setup
-  - [x] Real-time participant list with status indicators
-  - [-] Event statistics and analytics dashboard
-  - [x] Settings configuration GUI for admins
-
 ### 🎯 **Core Features**
-- [ ] **Enhanced Event Types**
-  - [ ] King of the Hill events
-  - [ ] Team-based competitions
-  - [ ] Elimination tournaments
-  - [ ] Time-based challenges
-  - [ ] Multi-stage events
 
 - [ ] **Advanced Automation**
   - [ ] Conditional event triggers (time, weather, player count)
@@ -299,19 +284,6 @@ hud:
   - [ ] Experience and level rewards
   - [ ] Title and achievement system
 
-### 🔧 **Technical Improvements**
-- [ ] **Performance Optimization**
-  - [ ] Async database operations
-  - [ ] Event caching system
-  - [ ] Memory usage optimization
-  - [ ] Database query optimization
-
-- [ ] **API Enhancements**
-  - [ ] More comprehensive hook system
-  - [ ] Event builder pattern API
-  - [ ] Custom event type registration
-  - [ ] Advanced event modification API
-
 ### 🌟 **Quality of Life**
 - [ ] **Player Experience**
   - [ ] Event history and statistics for players
@@ -320,12 +292,12 @@ hud:
   - [ ] Spectator mode for events
   - [ ] Event replay system
 
-- [ ] **Admin Tools**  
-  - [ ] Event templates and presets manager
-  - [ ] Bulk event operations
-  - [ ] Advanced logging and debugging
-  - [ ] Performance monitoring dashboard
-  - [ ] Automated backup and restore
+- [x] **Admin Tools**  
+  - [x] Event templates and presets manager
+  - [x] Bulk event operations
+  - [x] Advanced logging and debugging
+  - [x] Performance monitoring dashboard
+  - [x] Automated backup and restore
 
 ### 🔌 **Integrations**
 - [ ] **Discord Integration**

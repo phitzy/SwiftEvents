@@ -24,6 +24,9 @@ import com.swiftevents.listeners.PlayerListener;
 import com.swiftevents.locations.LocationManager;
 import com.swiftevents.tasker.EventTasker;
 import com.swiftevents.chat.ChatManager;
+import com.swiftevents.admin.BackupManager;
+import com.swiftevents.admin.BulkOperationsManager;
+import com.swiftevents.admin.PerformanceMonitor;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class SwiftEventsPlugin extends JavaPlugin {
@@ -45,6 +48,11 @@ public class SwiftEventsPlugin extends JavaPlugin {
     private HookManager hookManager;
     private ChatManager chatManager;
     private LocationManager locationManager;
+    
+    // Admin Tools
+    private BackupManager backupManager;
+    private BulkOperationsManager bulkOperationsManager;
+    private PerformanceMonitor performanceMonitor;
     
     @Override
     public void onEnable() {
@@ -92,6 +100,11 @@ public class SwiftEventsPlugin extends JavaPlugin {
             chatManager.shutdown();
         }
         
+        // Shutdown admin tools
+        if (backupManager != null) {
+            backupManager.shutdown();
+        }
+        
         getLogger().info("SwiftEvents plugin has been disabled!");
     }
     
@@ -137,6 +150,11 @@ public class SwiftEventsPlugin extends JavaPlugin {
         
         // Initialize Chat Manager
         chatManager = new ChatManager(this);
+        
+        // Initialize Admin Tools
+        backupManager = new BackupManager(this);
+        bulkOperationsManager = new BulkOperationsManager(this);
+        performanceMonitor = new PerformanceMonitor(this);
     }
     
     private void registerCommands() {
@@ -216,5 +234,18 @@ public class SwiftEventsPlugin extends JavaPlugin {
 
     public TaskerAPI getTaskerAPI() {
         return taskerAPI;
+    }
+    
+    // Admin Tools Getters
+    public BackupManager getBackupManager() {
+        return backupManager;
+    }
+    
+    public BulkOperationsManager getBulkOperationsManager() {
+        return bulkOperationsManager;
+    }
+    
+    public PerformanceMonitor getPerformanceMonitor() {
+        return performanceMonitor;
     }
 } 
