@@ -1,0 +1,20 @@
+{
+  "id": "0cf73bb4-4224-46c8-a66e-dabc7ff854f5",
+  "name": "Event 1-2",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "1e862a08-2c9e-4e22-84b1-3890ac5daa68",
+  "createdAt": 1752166023123,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

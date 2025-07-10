@@ -1,0 +1,20 @@
+{
+  "id": "3566a44f-fe2b-4a7e-ac79-e983df33bca3",
+  "name": "Event 2",
+  "description": "Description 2",
+  "type": "CHALLENGE",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "f53db815-9ec6-4b39-940e-d6ff95a3358a",
+  "createdAt": 1752166023005,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

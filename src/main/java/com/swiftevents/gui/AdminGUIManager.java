@@ -703,6 +703,9 @@ public class AdminGUIManager {
             case TREASURE_HUNT -> Material.CHEST;
             case MINI_GAME -> Material.JUKEBOX;
             case CUSTOM -> Material.COMMAND_BLOCK;
+            case TOURNAMENT -> Material.DIAMOND_SWORD;
+            case CHALLENGE -> Material.DIAMOND_SWORD;
+            default -> Material.BARRIER;
         };
     }
     
@@ -714,7 +717,10 @@ public class AdminGUIManager {
             case RACING -> "Speed and agility challenges";
             case TREASURE_HUNT -> "Exploration and discovery events";
             case MINI_GAME -> "Fun mini-games and activities";
+            case TOURNAMENT -> "Competitive events with ranked players";
+            case CHALLENGE -> "Challenges that test your skills";
             case CUSTOM -> "Fully customizable event type";
+            default -> "Unknown event type";
         };
     }
     

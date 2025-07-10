@@ -35,7 +35,7 @@ public class Event {
     }
     
     public enum EventType {
-        PVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM
+        PVP, PVE, BUILDING, RACING, TREASURE_HUNT, MINI_GAME, CUSTOM, TOURNAMENT, CHALLENGE
     }
     
     public enum EventStatus {
@@ -79,9 +79,12 @@ public class Event {
         ThreadLocal.withInitial(() -> new StringBuilder(64));
     
     public Event(String id, String name, String description, EventType type) {
+        // Input validation with security checks
+        validateInputs(id, name, description, type);
+        
         this.id = id != null ? id : UUID.randomUUID().toString();
-        this.name = name;
-        this.description = description;
+        this.name = sanitizeString(name);
+        this.description = sanitizeString(description);
         this.type = type;
         this.status = EventStatus.CREATED;
         this.maxParticipants = -1; // -1 means unlimited
@@ -100,6 +103,86 @@ public class Event {
         this(UUID.randomUUID().toString(), name, description, type);
     }
     
+    // Constructor with creator UUID for better tracking
+    public Event(String name, String description, EventType type, UUID createdBy) {
+        this(UUID.randomUUID().toString(), name, description, type);
+        this.createdBy = createdBy;
+    }
+    
+    // Input validation with security checks
+    private void validateInputs(String id, String name, String description, EventType type) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Event name cannot be null or empty");
+        }
+        
+        if (name.length() > 255) {
+            throw new IllegalArgumentException("Event name cannot exceed 255 characters");
+        }
+        
+        if (description != null && description.length() > 10000) {
+            throw new IllegalArgumentException("Event description cannot exceed 10,000 characters");
+        }
+        
+        if (type == null) {
+            throw new IllegalArgumentException("Event type cannot be null");
+        }
+        
+        // Security: Check for potential injection patterns
+        if (name != null && containsInjectionPattern(name)) {
+            throw new IllegalArgumentException("Event name contains invalid characters");
+        }
+        
+        if (description != null && containsInjectionPattern(description)) {
+            throw new IllegalArgumentException("Event description contains invalid characters");
+        }
+    }
+    
+    // String sanitization to prevent XSS and injection attacks
+    private String sanitizeString(String input) {
+        if (input == null) {
+            return null;
+        }
+        
+        // Only remove actual dangerous script tags and protocols, not normal punctuation
+        String sanitized = input
+            .replaceAll("(?i)<script[^>]*>.*?</script>", "") // Remove script tags
+            .replaceAll("(?i)javascript:", "") // Remove javascript: protocol
+            .replaceAll("(?i)data:", "") // Remove data: protocol
+            .replaceAll("(?i)vbscript:", "") // Remove vbscript: protocol
+            .replaceAll("(?i)on\\w+\\s*=", "") // Remove event handlers like onclick=
+            .trim();
+        
+        return sanitized.isEmpty() ? null : sanitized;
+    }
+    
+    // Check for potential injection patterns
+    private boolean containsInjectionPattern(String input) {
+        if (input == null) {
+            return false;
+        }
+        
+        String lowerInput = input.toLowerCase();
+        // Only check for actual dangerous injection patterns, not normal punctuation
+        return lowerInput.contains("<script") ||
+               lowerInput.contains("</script>") ||
+               lowerInput.contains("javascript:") ||
+               lowerInput.contains("data:text/html") ||
+               lowerInput.contains("vbscript:") ||
+               lowerInput.contains("onload=") ||
+               lowerInput.contains("onerror=") ||
+               lowerInput.contains("onclick=") ||
+               lowerInput.contains("onmouseover=") ||
+               lowerInput.contains("document.cookie") ||
+               lowerInput.contains("window.location") ||
+               lowerInput.contains("document.write") ||
+               lowerInput.contains("innerhtml") ||
+               lowerInput.contains("outerhtml") ||
+               lowerInput.contains("expression(") ||
+               lowerInput.contains("url(javascript:") ||
+               lowerInput.contains("@import") ||
+               lowerInput.contains("\\x");
+    }
+    
     // Getters and Setters
     public String getId() {
         return id;
@@ -110,7 +193,16 @@ public class Event {
     }
     
     public void setName(String name) {
-        this.name = name;
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Event name cannot be null or empty");
+        }
+        if (name.length() > 255) {
+            throw new IllegalArgumentException("Event name cannot exceed 255 characters");
+        }
+        if (containsInjectionPattern(name)) {
+            throw new IllegalArgumentException("Event name contains invalid characters");
+        }
+        this.name = sanitizeString(name);
     }
     
     public String getDescription() {
@@ -118,7 +210,13 @@ public class Event {
     }
     
     public void setDescription(String description) {
-        this.description = description;
+        if (description != null && description.length() > 10000) {
+            throw new IllegalArgumentException("Event description cannot exceed 10,000 characters");
+        }
+        if (description != null && containsInjectionPattern(description)) {
+            throw new IllegalArgumentException("Event description contains invalid characters");
+        }
+        this.description = sanitizeString(description);
     }
     
     public EventType getType() {
@@ -126,6 +224,9 @@ public class Event {
     }
     
     public void setType(EventType type) {
+        if (type == null) {
+            throw new IllegalArgumentException("Event type cannot be null");
+        }
         this.type = type;
     }
     
@@ -235,6 +336,14 @@ public class Event {
     }
     
     public boolean addParticipant(UUID playerId) {
+        if (playerId == null) {
+            throw new IllegalArgumentException("Player ID cannot be null");
+        }
+        
+        if (status == EventStatus.COMPLETED || status == EventStatus.CANCELLED) {
+            return false;
+        }
+        
         if (maxParticipants > 0 && participants.size() >= maxParticipants) {
             return false;
         }
@@ -247,6 +356,10 @@ public class Event {
     }
     
     public boolean removeParticipant(UUID playerId) {
+        if (playerId == null) {
+            throw new IllegalArgumentException("Player ID cannot be null");
+        }
+        
         boolean removed = participants.remove(playerId);
         if (removed) {
             currentParticipants = participants.size();
@@ -383,8 +496,7 @@ public class Event {
     }
     
     public boolean canJoin() {
-        return (status == EventStatus.CREATED || status == EventStatus.SCHEDULED || status == EventStatus.ACTIVE) 
-               && !isFull();
+        return status == EventStatus.ACTIVE && !isFull();
     }
     
     public boolean canStart() {

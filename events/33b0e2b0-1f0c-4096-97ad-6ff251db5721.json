@@ -1,0 +1,20 @@
+{
+  "id": "33b0e2b0-1f0c-4096-97ad-6ff251db5721",
+  "name": "Event 8-2",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "4113a8ae-3516-48d8-ab5e-841598a6b0c6",
+  "createdAt": 1752166558957,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

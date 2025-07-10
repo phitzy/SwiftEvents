@@ -5,7 +5,7 @@ import com.swiftevents.events.Event;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -119,7 +119,7 @@ public class HUDManager {
         List<Event> eventsToShow = new ArrayList<>(relevantEvents);
 
         if (eventsToShow.isEmpty()) {
-            objective.getScore(LegacyComponentSerializer.legacySection().serialize(Component.text("No events to display.", NamedTextColor.GRAY))).setScore(0);
+            objective.getScore(PlainTextComponentSerializer.plainText().serialize(Component.text("No events to display.", NamedTextColor.GRAY))).setScore(0);
         } else {
             for (int i = 0; i < eventsToShow.size() && i < 15; i++) {
                 Event event = eventsToShow.get(i);
@@ -128,7 +128,7 @@ public class HUDManager {
                         .append(Component.text(" (", NamedTextColor.GRAY))
                         .append(Component.text(event.getStatus().name(), getStatusColor(event.getStatus())))
                         .append(Component.text(")", NamedTextColor.GRAY));
-                objective.getScore(LegacyComponentSerializer.legacySection().serialize(eventLine)).setScore(15 - i);
+                objective.getScore(PlainTextComponentSerializer.plainText().serialize(eventLine)).setScore(15 - i);
             }
         }
         player.setScoreboard(scoreboard);
@@ -160,7 +160,7 @@ public class HUDManager {
             BossBar bossBar = Bukkit.createBossBar("", BarColor.WHITE, BarStyle.SOLID);
             Component title = Component.text("No events to display", NamedTextColor.GRAY, TextDecoration.ITALIC)
                     .append(Component.text(" - Bossbar HUD enabled", NamedTextColor.DARK_GRAY));
-            bossBar.setTitle(LegacyComponentSerializer.legacySection().serialize(title));
+            bossBar.setTitle(PlainTextComponentSerializer.plainText().serialize(title));
             bossBar.setProgress(0.0);
             bossBar.addPlayer(player);
             playerBossBars.put(player.getUniqueId(), bossBar);
@@ -226,7 +226,7 @@ public class HUDManager {
 
             // Create title with status indicator and better formatting
             Component title = createBossBarTitle(eventToShow);
-            bossBar.setTitle(LegacyComponentSerializer.legacySection().serialize(title));
+            bossBar.setTitle(PlainTextComponentSerializer.plainText().serialize(title));
 
             // Calculate progress more accurately
             double progress = calculateBossBarProgress(eventToShow);
@@ -363,7 +363,7 @@ public class HUDManager {
 
     public void sendActionBarMessage(Player player, String message) {
         if (player == null || !player.isOnline() || message == null) return;
-        player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(message));
+        player.sendActionBar(Component.text(message));
     }
 
     public void updateActiveEvents() {

@@ -1,0 +1,20 @@
+{
+  "id": "171fed9c-e972-4cf7-b29d-2ac9741e5112",
+  "name": "Event 6-2",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "eb587107-fba5-4cdb-acb5-6911bb24c7b1",
+  "createdAt": 1752166558960,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

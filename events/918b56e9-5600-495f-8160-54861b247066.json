@@ -1,0 +1,20 @@
+{
+  "id": "918b56e9-5600-495f-8160-54861b247066",
+  "name": "Event 9-2",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "568b9210-834c-4d31-9718-49c7b382811d",
+  "createdAt": 1752166558952,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

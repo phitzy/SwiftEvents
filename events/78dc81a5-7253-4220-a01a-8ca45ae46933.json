@@ -1,0 +1,20 @@
+{
+  "id": "78dc81a5-7253-4220-a01a-8ca45ae46933",
+  "name": "Test Event",
+  "description": "Test Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "fa9e031d-b29e-4519-8428-48b1064dd726",
+  "createdAt": 1752166558888,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

@@ -58,6 +58,8 @@ local.properties
 # VS Code
 .vscode/
 
+test_data/
+
 # OS generated files
 .DS_Store
 .DS_Store?

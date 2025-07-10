@@ -219,6 +219,9 @@ public class EventPresetManager {
             case TREASURE_HUNT -> Material.COMPASS;
             case MINI_GAME -> Material.SLIME_BALL;
             case CUSTOM -> Material.COMMAND_BLOCK;
+            case TOURNAMENT -> Material.DIAMOND_SWORD;
+            case CHALLENGE -> Material.DIAMOND_SWORD;
+            default -> Material.BARRIER;
         };
     }
     

@@ -331,6 +331,7 @@ public class BulkOperationsManager {
             case DELETE -> plugin.getEventManager().deleteEvent(event.getId());
             case PAUSE -> plugin.getEventManager().pauseEvent(event.getId());
             case RESUME -> plugin.getEventManager().resumeEvent(event.getId());
+            default -> false;
         };
     }
     
@@ -351,6 +352,9 @@ public class BulkOperationsManager {
             case TREASURE_HUNT -> Material.COMPASS;
             case MINI_GAME -> Material.SLIME_BALL;
             case CUSTOM -> Material.COMMAND_BLOCK;
+            case TOURNAMENT -> Material.DIAMOND_SWORD;
+            case CHALLENGE -> Material.DIAMOND_SWORD;
+            default -> Material.BARRIER;
         };
     }
     

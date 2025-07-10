@@ -1,0 +1,20 @@
+{
+  "id": "5d0313c3-0e2e-452a-bafd-22f4bf501a10",
+  "name": "Event 7-0",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "0353f1c4-dc90-4abe-b3cb-d63ab353328f",
+  "createdAt": 1752166272587,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}
