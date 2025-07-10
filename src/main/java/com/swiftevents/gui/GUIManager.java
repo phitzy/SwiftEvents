@@ -623,6 +623,9 @@ public class GUIManager {
             case TREASURE_HUNT -> Material.CHEST;
             case MINI_GAME -> Material.LIME_CONCRETE;
             case CUSTOM -> Material.COMMAND_BLOCK;
+            case TOURNAMENT -> Material.DIAMOND_SWORD;
+            case CHALLENGE -> Material.DIAMOND_SWORD;
+            default -> Material.BARRIER;
         };
     }
     

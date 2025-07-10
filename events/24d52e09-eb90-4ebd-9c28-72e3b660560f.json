@@ -1,0 +1,20 @@
+{
+  "id": "24d52e09-eb90-4ebd-9c28-72e3b660560f",
+  "name": "Event 5-2",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "e213886e-ae26-4423-8763-ae30e128379b",
+  "createdAt": 1752166272617,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

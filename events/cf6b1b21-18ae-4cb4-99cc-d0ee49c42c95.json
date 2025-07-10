@@ -1,0 +1,20 @@
+{
+  "id": "cf6b1b21-18ae-4cb4-99cc-d0ee49c42c95",
+  "name": "Event 4-3",
+  "description": "Description",
+  "type": "TOURNAMENT",
+  "status": "CREATED",
+  "maxParticipants": -1,
+  "currentParticipants": 0,
+  "startTime": 0,
+  "endTime": 0,
+  "createdBy": "635a9ca9-00cf-4f4d-abcd-891458cb564d",
+  "createdAt": 1752166023130,
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.0,
+  "hasLocation": false,
+  "participants": [],
+  "rewards": [],
+  "requirements": {}
+}

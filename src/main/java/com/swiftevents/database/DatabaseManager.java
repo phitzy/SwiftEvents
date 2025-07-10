@@ -6,6 +6,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.dbcp2.BasicDataSource;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -15,6 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -82,6 +85,7 @@ public class DatabaseManager {
         this.gson = new GsonBuilder()
                 .setPrettyPrinting()
                 .setDateFormat("yyyy-MM-dd HH:mm:ss")
+                .disableHtmlEscaping()
                 .create();
         
         // Initialize dedicated thread pool for database operations
@@ -165,13 +169,35 @@ public class DatabaseManager {
     }
     
     private void initializeJsonStorage() {
-        jsonFolder = new File(plugin.getDataFolder(), plugin.getConfigManager().getJsonFolder());
+        // Resolve folder name from configuration (fallback to "events" if blank)
+        String folderName = plugin.getConfigManager().getJsonFolder();
+        if (folderName == null || folderName.trim().isEmpty()) {
+            folderName = "events";
+        }
+
+        // Prevent absolute paths to avoid writing outside the plugin data folder and to
+        // ensure tests that intentionally pass invalid absolute paths fail gracefully.
+        File proposed = new File(folderName);
+        // On Windows, File#isAbsolute may return false for paths starting with a separator (e.g., "\\invalid"),
+        // so explicitly guard against leading separators as well.
+        if (proposed.isAbsolute() || folderName.startsWith("/") || folderName.startsWith("\\")) {
+            plugin.getLogger().warning("Absolute JSON storage path is not allowed: " + folderName);
+            jsonFolder = null;
+            return;
+        }
+
+        // Create (or reuse) the directory inside the plugin's data folder
+        jsonFolder = new File(plugin.getDataFolder(), folderName);
         if (!jsonFolder.exists()) {
             boolean created = jsonFolder.mkdirs();
             if (!created) {
-                plugin.getLogger().warning("Failed to create JSON storage directory");
+                plugin.getLogger().warning("Failed to create JSON storage directory: " + jsonFolder.getPath());
+                // Mark as unusable so future operations will fail fast & return false
+                jsonFolder = null;
+                return;
             }
         }
+
         plugin.getLogger().info("JSON storage initialized at: " + jsonFolder.getPath());
     }
     
@@ -230,6 +256,9 @@ public class DatabaseManager {
     
     // Event CRUD operations with improved async handling and batching
     public CompletableFuture<Boolean> saveEvent(Event event) {
+        if (event == null) {
+            return CompletableFuture.completedFuture(false);
+        }
         return CompletableFuture.supplyAsync(() -> {
             try {
                 if (plugin.getConfigManager().isDatabaseEnabled() && dataSource != null) {
@@ -249,7 +278,11 @@ public class DatabaseManager {
     
     // Optimized batch save operation with better memory management
     public CompletableFuture<Boolean> saveEvents(Collection<Event> events) {
-        if (events == null || events.isEmpty()) {
+        if (events == null) {
+            return CompletableFuture.completedFuture(false);
+        }
+        
+        if (events.isEmpty()) {
             return CompletableFuture.completedFuture(true);
         }
         
@@ -323,6 +356,10 @@ public class DatabaseManager {
             if (plugin.getConfigManager().isDatabaseEnabled()) {
                 plugin.getLogger().warning("Data backup is currently only supported for JSON storage.");
                 return false; // Or implement database backup logic
+            }
+            if (jsonFolder == null) {
+                plugin.getLogger().warning("Cannot create backup: JSON storage directory is not available.");
+                return false;
             }
             try {
                 File backupDir = new File(jsonFolder, "backups");
@@ -586,6 +623,11 @@ public class DatabaseManager {
     
     // JSON operations with optimized file handling
     private boolean saveEventToJson(Event event) {
+        if (jsonFolder == null || !jsonFolder.exists() || !jsonFolder.canWrite()) {
+            plugin.getLogger().warning("JSON storage directory is not accessible: " + 
+                (jsonFolder != null ? jsonFolder.getPath() : "null"));
+            return false;
+        }
         File eventFile = new File(jsonFolder, event.getId() + ".json");
         return saveEventToJsonFile(event, eventFile);
     }
@@ -611,16 +653,24 @@ public class DatabaseManager {
     }
     
     private Event loadEventFromJson(String eventId) {
+        if (jsonFolder == null || !jsonFolder.exists()) {
+            return null;
+        }
+        
         File eventFile = new File(jsonFolder, eventId + ".json");
         
         if (!eventFile.exists()) {
             return null;
         }
         
-        try (FileReader reader = new FileReader(eventFile, StandardCharsets.UTF_8)) {
+        try (Reader reader = new InputStreamReader(new FileInputStream(eventFile), StandardCharsets.UTF_8)) {
             return gson.fromJson(reader, Event.class);
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to load event from JSON: " + e.getMessage());
+            return null;
+        } catch (Exception e) {
+            // Handle JSON parsing exceptions (corrupted files)
+            plugin.getLogger().warning("Failed to parse event JSON from " + eventFile.getName() + ": " + e.getMessage());
             return null;
         }
     }
@@ -629,38 +679,33 @@ public class DatabaseManager {
         if (jsonFolder == null || !jsonFolder.exists()) {
             return new ArrayList<>();
         }
-        
+
         File[] eventFiles = jsonFolder.listFiles((dir, name) -> name.endsWith(".json"));
         if (eventFiles == null) {
             return new ArrayList<>();
         }
 
-        List<Event> events = Collections.synchronizedList(new ArrayList<>());
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
+        List<Event> events = new ArrayList<>();
         for (File eventFile : eventFiles) {
-            futures.add(CompletableFuture.runAsync(() -> {
-                try (Reader reader = new InputStreamReader(new FileInputStream(eventFile), StandardCharsets.UTF_8)) {
-                    Event event = gson.fromJson(reader, Event.class);
-                    if (event != null && event.getId() != null) {
-                        events.add(event);
-                    }
-                } catch (IOException e) {
-                    plugin.getLogger().warning("Error loading event from " + eventFile.getName() + ": " + e.getMessage());
+            try (Reader reader = new InputStreamReader(new FileInputStream(eventFile), StandardCharsets.UTF_8)) {
+                Event event = gson.fromJson(reader, Event.class);
+                if (event != null && event.getId() != null) {
+                    events.add(event);
                 }
-            }, databaseExecutor));
+            } catch (IOException e) {
+                plugin.getLogger().warning("Error loading event from " + eventFile.getName() + ": " + e.getMessage());
+            } catch (Exception e) {
+                // Handle JSON parsing exceptions (corrupted files)
+                plugin.getLogger().warning("Error parsing event JSON from " + eventFile.getName() + ": " + e.getMessage());
+            }
         }
-
-        try {
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } catch (Exception e) {
-            plugin.getLogger().severe("Error waiting for JSON event loading to complete: " + e.getMessage());
-        }
-
         return events;
     }
     
     private boolean deleteEventFromJson(String eventId) {
+        if (jsonFolder == null || !jsonFolder.exists()) {
+            return false;
+        }
         File eventFile = new File(jsonFolder, eventId + ".json");
         return eventFile.exists() && eventFile.delete();
     }
